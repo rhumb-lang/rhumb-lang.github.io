@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-# Functions
+# Table of Contents
 
 Docusaurus can manage multiple versions of your docs.
 

@@ -66,12 +66,12 @@ const config = {
             type: 'doc',
             docId: 'intro',
             position: 'left',
-            label: 'Tutorial',
+            label: 'Getting Started',
           },
           {to: '/blog', label: 'Blog', position: 'left'},
           {
-            href: 'https://github.com/facebook/docusaurus',
-            label: 'GitHub',
+            href: 'https://sr.ht/~madcapjake/rhumb-lang/sources',
+            label: 'SourceHut',
             position: 'right',
           },
         ],
@@ -83,8 +83,16 @@ const config = {
             title: 'Docs',
             items: [
               {
-                label: 'Tutorial',
+                label: 'Getting Started',
                 to: '/docs/intro',
+              },
+              {
+                label: 'Functions',
+                to: 'docs/reference-functions/toc',
+              },
+              {
+                label: 'Maps',
+                to: 'docs/reference-maps/toc',
               },
             ],
           },
@@ -93,11 +101,11 @@ const config = {
             items: [
               {
                 label: 'Stack Overflow',
-                href: 'https://stackoverflow.com/questions/tagged/docusaurus',
+                href: 'https://stackoverflow.com/questions/tagged/rhumb',
               },
               {
-                label: 'Discord',
-                href: 'https://discordapp.com/invite/docusaurus',
+                label: 'Matrix Space',
+                href: 'https://matrix.to/#/#rhumb-lang:matrix.org',
               },
               {
                 label: 'Twitter',
