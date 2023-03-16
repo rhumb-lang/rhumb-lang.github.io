@@ -108,8 +108,8 @@ const config = {
                 href: 'https://matrix.to/#/#rhumb-lang:matrix.org',
               },
               {
-                label: 'Twitter',
-                href: 'https://twitter.com/docusaurus',
+                label: 'Mastodon',
+                href: 'https://fosstodon.org/@rhumb',
               },
             ],
           },
