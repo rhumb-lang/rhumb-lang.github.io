@@ -4,3 +4,50 @@ sidebar_position: 8
 
 # Maps
 
+The only compound value around. Maps are used for both positional
+data and for labeled data. Using the terms of some other
+languages, they cover the territory of "arrays" and "dictionaries."
+Think of it like Lua's tables and you've got the right idea.
+
+```
+[foo;bar]
+```
+
+Here we have a map with two positional values: `foo` and `bar`. The
+labels in this case are just evaluating to the corresponding data
+underneath. In order to label things in a map, you have to use the
+assignment operators.
+
+```
+[foo..1;bar..2]
+```
+
+We'll go over these operators in greater detail later in this
+tutorial. For now, just understand that labeling occurs via
+operators only.
+
+### Access
+
+To access a map's contents (similar to a routine), you use the
+postcircumfix version of the map operator `[]`.
+
+```
+some-map[foo]
+```
+
+This means "take some value labeled `foo` and evaluate it, whatever
+value is returned, check to see if it's a label or position within
+`some-map`".
+
+You can also supply a number or string directly to this access
+operation:
+
+```
+some-map[0]
+some-map['foo']
+```
+The last one can actually be replaced by the short-hand version:
+```
+some-map\foo
+```
+The syntax `some-map\foo` and `some-map['foo']` are equivalent. 
