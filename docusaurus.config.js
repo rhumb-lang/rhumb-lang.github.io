@@ -108,8 +108,7 @@ const config = {
                 href: 'https://matrix.to/#/#rhumb-lang:matrix.org',
               },
               {
-                label: 'Mastodon',
-                href: 'https://fosstodon.org/@rhumb',
+                html: '<a rel="me" href="https://fosstodon.org/@rhumb">Mastodon</a>'
               },
             ],
           },
