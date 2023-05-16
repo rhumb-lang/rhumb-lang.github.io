@@ -7,7 +7,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'The Rhumb Language',
-  tagline: 'Minimalist Prototypal Language',
+  tagline: 'Experimental International Language',
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
