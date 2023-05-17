@@ -28,20 +28,25 @@ Reference routines are known as **subroutines** in Rhumb.
 ```
 You would then supply a label to this value and could invoke it at
 a later time. These subroutines are just reusable code but there
-is a way to supply unlabeled arguments. More on that later.
+is a way to supply unlabeled arguments:
+
+```plain
+fib .= <(#1 << 2 => #1 !> fib(#1 -- 1) ++ fib(#1 -- 2))>
+```
 
 ## Invocation
 
-You could give that subroutine a label of `baz` and then could invoke
-it at a later time with `()` the invocation operators (parentheses).
+Imagine we have a subroutine with a label of `baz`. You would invoke
+by just referencing it. If you want to supply arguments, you can include 
+a postfix set of parentheses but they are not required.
 
 ```plain
-baz()
+baz   % same as
+baz() % this
 ```
 
-This one should feel familiar to programmers, you just can't get
-away from the postcircumfix parentheses! You can supply arguments
-to the subroutine by inserting values and using the `;` operator.
+You can supply multiple arguments to the subroutine by separating values
+using the `;` operator.
 
 ```plain
 baz(1; two)
@@ -50,7 +55,41 @@ baz(1; two)
 
 Because commas are part of numbers as per some cultural conventions.
 Commas don't make sense in labels like periods do so they are used
-only in the number token.
+only in the number token and in the prefix reply operator.
 
 :::
 
+## Functions
+
+When you want to explicitly name the arguments that are supplied to a
+subroutine, provide them with a [submap](maps.mdx#submaps). A submap is normally
+delinaeated with a `<[...]>` but the `->` function operator will do the
+referencing automatically.
+
+```plain
+pythag .= [a; b; c] -> a^^2 ++ b^^2 // c^^2
+equiv-subroutine .= <[#1^^2 ++ #2^^2 // #3^^2]>
+```
+
+You must supply a surrounding `[]` at least because you can provide a submap as
+a labeled value and it will become the parameter list. You can even concatenate
+two submaps together in a manner:
+
+```plain
+person .= <[first; last; age]>
+employee .= <[grade; title; id]>
+access1 .= [person; employee] -> (
+    employee\grade << 23 =>
+        $access-denied(person\first; person\last; employee\id)
+)
+access2 .= [&person; &employee] -> (
+    grade << 23 =>
+        $access-denied(first; last; id)
+)
+access3 .= (person && employee) -> (
+    grade << 23 =>
+        $access-denied(first; last; id)
+)
+```
+Here, you can see how parameter lists are first-class constructs that captures
+the spirit of named arguments, records and scope.

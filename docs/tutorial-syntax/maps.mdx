@@ -26,7 +26,7 @@ We'll go over these operators in greater detail later in this
 tutorial. For now, just understand that labeling occurs via
 operators only.
 
-### Access
+## Access
 
 To access a map's contents (similar to a routine), you use the
 postcircumfix version of the map operator `[]`.
@@ -51,3 +51,28 @@ The last one can actually be replaced by the short-hand version:
 some-map\foo
 ```
 The syntax `some-map\foo` and `some-map['foo']` are equivalent. 
+
+## Submaps
+
+Submaps are "mini-proto-environments" that allow you to specify label references
+as a sequence of elements. Each label reference element exists in a kind of
+"label limbo" where they await assignment. They can be invoked like functions 
+where each argument element gets assigned to the label element at that position.
+They can also be given to the applicative operator `->` which then becomes your
+named parameters for a function. The difference is that when invoking, you are
+creating a map with fields. When you supply it to the applicative op, the labels
+become local labels within the routine body.
+
+```plain
+warehouse .= <[name; maximum; current::0]>
+north .= warehouse('Northside', 2,000.-)
+south .= warehouse('South River', 2,500.-)
+supply-run .= [load; &warehouse] -> (
+    remaining .= maximum -- current -- load
+    remaining << 0 => $not-enough-space(-remaining)
+    current := current ++ load
+)
+```
+
+You can spread them with the `&` operator and they will flatten all their
+labels as parameters in the main parameter list (itself a submap).
