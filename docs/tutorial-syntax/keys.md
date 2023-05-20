@@ -7,8 +7,8 @@ sidebar_position: 5
 Distinct identity labels. Keys are special labels that can never match
 any other value than itself.
 
-```
-`foo
+```rhumb
+foo .= `foo
 `email@domain.com
 ```
 

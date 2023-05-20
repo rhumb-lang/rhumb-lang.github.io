@@ -23,7 +23,7 @@ Delimited with the `'` symbol (single-quote), the raw text is for
 text that you don't have any special formatting or code inside
 of the text.
 
-```
+```rhumb
 'raw'
 'nothing happening'
 'no special syntax'
@@ -35,7 +35,7 @@ Delimited with the `"` symbol (double-quote), this syntax is for
 text that you want to utilize escape-sequences and interpolated
 labels.
 
-```
+```rhumb
 "nothing special here"
 "newline`nthere"
 "tab`tcharacter"

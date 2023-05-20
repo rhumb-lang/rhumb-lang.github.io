@@ -15,7 +15,7 @@ Only one set will be active in a given project at the source level. IDE plugins 
 
 Labels can be any value that starts with a unicode letter codepoint and can be followed by any number of unicode letter/number codepoints intermixed with dashes, dots, and underscores.
 
-```plain
+```rhumb
 label 
 label-with-dash
 label_with_underscore
@@ -26,13 +26,13 @@ l0-b1_f_10.boolean
 
 You can encode non-breaking filenames directly as labels in many cases.
 
-```plain
+```rhumb
 favicon.ico
 ```
 
 You could treat the extension like a type tag:
 
-```plain
+```rhumb
 can-run.count
 can-run.test
 ```

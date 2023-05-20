@@ -6,7 +6,7 @@ sidebar_position: 2
 
 Numbers can be written in a wide variety of ways to support as many different syntaxes as possible.
 
-```plain
+```rhumb
 10
 10.0
 10,2
@@ -14,7 +14,6 @@ Numbers can be written in a wide variety of ways to support as many different sy
 10,-
 10.000,00
 10.000,-
-10,000.-USD
 ```
 
 You can use either the `.` or the `,` to indicate either the thousand-separator or the decimal place. Additionally, you can supply a currency code after the number and Rhumb will actually generate a Currency value.

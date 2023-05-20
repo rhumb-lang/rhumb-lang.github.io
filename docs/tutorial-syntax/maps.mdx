@@ -9,7 +9,7 @@ data and for labeled data. Using the terms of some other
 languages, they cover the territory of "arrays" and "dictionaries."
 Think of it like Lua's tables and you've got the right idea.
 
-```
+```rhumb
 [foo;bar]
 ```
 
@@ -18,7 +18,7 @@ labels in this case are just evaluating to the corresponding data
 underneath. In order to label things in a map, you have to use the
 assignment operators.
 
-```
+```rhumb
 [foo..1;bar..2]
 ```
 
@@ -31,7 +31,7 @@ operators only.
 To access a map's contents (similar to a routine), you use the
 postcircumfix version of the map operator `[]`.
 
-```
+```rhumb
 some-map[foo]
 ```
 
@@ -42,12 +42,12 @@ value is returned, check to see if it's a label or position within
 You can also supply a number or string directly to this access
 operation:
 
-```
+```rhumb
 some-map[0]
 some-map['foo']
 ```
 The last one can actually be replaced by the short-hand version:
-```
+```rhumb
 some-map\foo
 ```
 The syntax `some-map\foo` and `some-map['foo']` are equivalent. 
@@ -63,7 +63,8 @@ named parameters for a function. The difference is that when invoking, you are
 creating a map with fields. When you supply it to the applicative op, the labels
 become local labels within the routine body.
 
-```plain
+```rhumb
+foo ++ bar
 warehouse .= <[name; maximum; current::0]>
 north .= warehouse('Northside', 2,000.-)
 south .= warehouse('South River', 2,500.-)

@@ -23,14 +23,14 @@ When you want to store a routine and execute it at a later time,
 place it in `<()>` and it will be converted into a reference routine.
 Reference routines are known as **subroutines** in Rhumb.
 
-```plain
+```rhumb
 <(foo; bar)>
 ```
 You would then supply a label to this value and could invoke it at
 a later time. These subroutines are just reusable code but there
 is a way to supply unlabeled arguments:
 
-```plain
+```rhumb
 fib .= <(#1 << 2 => #1 !> fib(#1 -- 1) ++ fib(#1 -- 2))>
 ```
 
@@ -40,7 +40,7 @@ Imagine we have a subroutine with a label of `baz`. You would invoke
 by just referencing it. If you want to supply arguments, you can include 
 a postfix set of parentheses but they are not required.
 
-```plain
+```rhumb
 baz   % same as
 baz() % this
 ```
@@ -48,7 +48,7 @@ baz() % this
 You can supply multiple arguments to the subroutine by separating values
 using the `;` operator.
 
-```plain
+```rhumb
 baz(1; two)
 ```
 :::tip Why no comma operator?
@@ -66,7 +66,7 @@ subroutine, provide them with a [submap](maps.mdx#submaps). A submap is normally
 delinaeated with a `<[...]>` but the `->` function operator will do the
 referencing automatically.
 
-```plain
+```rhumb
 pythag .= [a; b; c] -> a^^2 ++ b^^2 // c^^2
 equiv-subroutine .= <[#1^^2 ++ #2^^2 // #3^^2]>
 ```
@@ -75,7 +75,7 @@ You must supply a surrounding `[]` at least because you can provide a submap as
 a labeled value and it will become the parameter list. You can even concatenate
 two submaps together in a manner:
 
-```plain
+```rhumb
 person .= <[first; last; age]>
 employee .= <[grade; title; id]>
 access1 .= [person; employee] -> (
