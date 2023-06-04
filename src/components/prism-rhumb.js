@@ -17,8 +17,12 @@ Prism.languages.rhumb = {
         pattern: /`[^\s;)\]}]+/,
         alias: 'builtin',
     },
-    'local': {
+    'signal': {
         pattern: /#[\w\d]+/,
+        alias: 'symbol',
+    },
+    'local': {
+        pattern: /\$[\w\d]+/,
         alias: 'variable',
     },
     'punctuation': {
