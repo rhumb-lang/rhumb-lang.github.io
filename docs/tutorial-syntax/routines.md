@@ -7,7 +7,7 @@ sidebar_position: 3
 Collections of sequential expressions. Routines are your basic
 parentheses-based grouping mechanism.
 
-```plain
+```rhumb
 (one;2)
 ```
 
