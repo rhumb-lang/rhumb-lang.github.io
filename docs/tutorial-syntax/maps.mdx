@@ -10,16 +10,30 @@ languages, they cover the territory of "arrays" and "dictionaries."
 Think of it like Lua's tables and you've got the right idea.
 
 ```rhumb
-[foo;bar]
+[foo;bar] % two positional elements
 ```
 
-Here we have a map with two positional values: `foo` and `bar`. The
-labels in this case are just evaluating to the corresponding data
-underneath. In order to label things in a map, you have to use the
-assignment operators.
+Here we have a map with two positional values: `foo` and `bar`. Since
+labels were not provided, the values are stored in a positional array.
+They can be accessed with 1-based numerical indexes.
 
 ```rhumb
-[foo..1;bar..2]
+toppings .= ['pepperoni', 'bell peppers']
+toppings[1] %= pepperoni
+```
+:::info Note: Accessing all elements
+
+If you want to grab all list elements and leave the map fields behind,
+you can access them with the field operator `[0]`, the zeroth element
+represents only the positional elements of a given map.
+
+:::
+
+You can add fields to a map literal by using the `..` or `::` assignment
+operators.
+
+```rhumb
+[foo..1;bar::2] % foo is immutable, bar is mutable
 ```
 
 We'll go over these operators in greater detail later in this
@@ -28,26 +42,27 @@ operators only.
 
 ## Access
 
-To access a map's contents (similar to a routine), you use the
-postcircumfix version of the map operator `[]`.
+To access a map's contents, you use the postcircumfix version of
+the map operator `[]`. You suppy a numerical value to get positional
+elements and a text or key value to get at field elements.
 
 ```rhumb
+some-map[1] % The first element is the 1 index value
 some-map[foo]
 ```
 
-This means "take some value labeled `foo` and evaluate it, whatever
-value is returned, check to see if it's a label or position within
-`some-map`".
+The first version uses a literal value but the second version will
+evaluate the `foo` label which could either invoke a subroutine or 
+acquire direct access to the value in memory.
 
-You can also supply a number or string directly to this access
-operation:
+If you supply a text or key literal, you can get access to the 
+associated field label within the map. 
 
 ```rhumb
-some-map[1]
 some-map['foo']
 some-map["f$('o' ^^ 2)"]
 ```
-They can actually be replaced by the short-hand versions:
+These can also be written with the syntax sugar `\` operator.
 ```rhumb
 some-map\1
 some-map\foo
