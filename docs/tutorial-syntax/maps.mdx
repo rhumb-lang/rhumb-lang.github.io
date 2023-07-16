@@ -43,14 +43,18 @@ You can also supply a number or string directly to this access
 operation:
 
 ```rhumb
-some-map[0]
+some-map[1]
 some-map['foo']
+some-map["f$('o' ^^ 2)"]
 ```
-The last one can actually be replaced by the short-hand version:
+They can actually be replaced by the short-hand versions:
 ```rhumb
+some-map\1
 some-map\foo
+some-map\'foo'
+some-map\"f$('o' ^^ 2)"
 ```
-The syntax `some-map\foo` and `some-map['foo']` are equivalent. 
+The syntax `some-map\foo`, `some-map['foo']` and `some-map\'foo'` are equivalent. 
 
 ## Submaps
 
