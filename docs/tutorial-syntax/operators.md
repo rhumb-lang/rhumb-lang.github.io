@@ -311,7 +311,7 @@ switch .= cond -> #(cond)
 switch(getchar) {
     'a' .. console\log("got a!")
     'b' .. console\log("got b!")
-    unknown .. console\log("unknown value: #(unknown)")
+    unknown .. console\log("unknown value: $unknown")
 }
 ```
 
