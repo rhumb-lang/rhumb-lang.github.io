@@ -95,7 +95,7 @@ Prism.languages.rhumb = {
 
         },
         {
-            pattern: /[~=]>|!!|\?\?/,
+            pattern: /[~=!$]>|!!|\?\?/,
         }
     ],
     'comment': {
