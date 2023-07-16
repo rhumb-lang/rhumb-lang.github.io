@@ -1,58 +1,45 @@
 Prism.languages.rhumb = {
     'text': [
-        // {
-        //     pattern: /"(?:`[\s\S]|\$\((?:[^()]|\((?:[^()]|\([^)]*\))*\))+\)|(?!\$\()[^`"])*"/,
-        //     greedy: true,
-        //     alias: 'string',
-        //     inside: {
-        //         'template-punctuation': {
-        //             pattern: /^"|"$/,
-        //             alias: 'string'
-        //         },
-        //         'interpolation': {
-        //             pattern: /((?:^|[^\\])(?:`{2})*)\$\((?:[^()]|\((?:[^()]|\([^)]*\))*\))+\)/,
-        //             lookbehind: true,
-        //             inside: {
-        //                 'interpolation-punctuation': {
-        //                     pattern: /^\$\(|\)$/,
-        //                     alias: 'punctuation'
-        //                 },
-        //                 rest: Prism.languages.javascript
-        //             }
-        //         },
-        //         'string': /[\s\S]+/
-        //     }
-        // },
         {
             pattern: /"(?:`[\s\S]|\$\{(?:[^{}]|\{(?:[^{}]|\{[^}]*\})*\})+\}|\$\((?:[^()]|\((?:[^()]|\([^)]*\))*\))+\)|(?!\$\{|\$\()[^`"])*"/,
             greedy: true,
             alias: 'string',
             inside: {
-                'template-punctuation': {
+                'text-punctuation': {
                     pattern: /^"|"$/,
                     alias: 'string'
                 },
                 'interpolation': [
                     {
-                        pattern: /((?:^|[^\\])(?:`{2})*)\$\{(?:[^{}]|\{(?:[^{}]|\{[^}]*\})*\})+\}/,
+                        pattern: /\$\w+/,
+                        inside: {
+                            'interpolation-punctuation': {
+                                pattern: /\$/,
+                                alias: 'punctuation'
+                            }
+                        },
+                        alias: 'property'
+                    },
+                    {
+                        pattern: /((?:^|[^`])(?:`{2})*)\$\{(?:[^{}]|\{(?:[^{}]|\{[^}]*\})*\})+\}/,
                         lookbehind: true,
                         inside: {
                             'interpolation-punctuation': {
                                 pattern: /^\$\{|\}$/,
                                 alias: 'punctuation'
                             },
-                            rest: Prism.languages.javascript
+                            rest: Prism.languages.rhumb
                         }
                     },
                     {
-                        pattern: /((?:^|[^\\])(?:`{2})*)\$\((?:[^()]|\((?:[^()]|\([^)]*\))*\))+\)/,
+                        pattern: /((?:^|[^`])(?:`{2})*)\$\((?:[^()]|\((?:[^()]|\([^)]*\))*\))+\)/,
                         lookbehind: true,
                         inside: {
                             'interpolation-punctuation': {
                                 pattern: /^\$\(|\)$/,
                                 alias: 'punctuation'
                             },
-                            rest: Prism.languages.javascript
+                            rest: Prism.languages.rhumb
                         }
                     },
                 ],
