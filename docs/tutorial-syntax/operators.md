@@ -588,6 +588,14 @@ If the left-hand side evaluates to `no` or `empty`, then the right-hand side is 
 
 If the left-hand side evaluates to anything else, then the right-hand side is never evaluated. The result of the expression is then the `empty`.
 
+### `|>` While
+
+The left-hand argument becomes a subroutine if not already provided as one. This subroutine is evaluated over and over again until it returns `no` or `empty`. Each time that the subroutine does not return those two possible values, it executes the right-hand side of the argument (also a subroutine).
+
+### `<>` Foreach
+
+The left-hand side must be a map and it takes the positional values and supplies them one-by-one to a subroutine on the right-hand side (or a function). The final result of the expression is a list of all of the returned results.
+
 ### `||` Pipe
 
 Take the left-hand side and evaluate, the result is then given as arguments to the right-hand side (which is either an explicit subroutine or one is created implicitly from the expression given).
