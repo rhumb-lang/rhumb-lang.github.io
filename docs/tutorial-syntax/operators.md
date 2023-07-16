@@ -128,6 +128,20 @@ qux2 .= inc2(foo[:]) % foo is now explicitly copied
 % original foo is unmodified
 ```
 
+:::info Note: Reference Parameters
+
+This operator allows you to bypass a function that takes a reference to an argument that the user provides by giving it a clone of the original map.
+
+```rhumb
+link .= [<some-map>, val] -> some-map\foo .= val
+baz .= []
+link(baz; 'wow') % baz == [foo..'wow']
+link(baz[:]; 'BAZ IS BROKEN!') % original baz is unchanged
+```
+Since the copied `baz` is never stored anywhere, it will soon be garbage collected.
+
+:::
+
 ### `[/]` Date Coerce
 
 Can be applied to a number to try to convert from Unix time into a date and also can convert a text by applying several parsing strategies to see if it qualifies as a date.
@@ -170,21 +184,87 @@ When applied to any value, it attempts to execute the corresponding coercion fun
 
 ## Prefix Versions
 
+Some of the field operators have a shorthand prefix version. These versions usually lean closer to what users expect coming from other languages.
+
 ### `?` Empty?
+
+See [field op](#-empty) description.
+
+```rhumb
+has-bananas .= ?warehouse\banana => warehouse\banana >> 0
+```
 
 ### `.` Freeze
 
+See [field op](#-freeze) description.
+
+```rhumb
+vote.final .= [v] -> (
+    votes[>] .= v
+    #(.votes)
+)
+```
+
 ### `:` Copy
+
+See [field op](#-copy) description.
+
+The `NewWarehouse` subroutine stores the first arg in `pos` field.
+
+```rhumb
+wh2 .= NewWarehouse(:positions; 'Oak') 
+wh2\pos\manager := Employee('Sandra'; 1734521)
+wh3 .= NewWarehouse(:positions; 'Maple')
+wh3\pos\manager := Employee('Darius'; 4827142)
+```
+
+The original `positions` map is unchanged.
+
+```rhumb
+wh4 .= NewWarehouse(wh3\pos; 'Cherry')
+```
+
+Now, `wh4` shares positions with `wh3` and changes are applied to both maps.
 
 ### `+` Numerical Coerce
 
+See [field op](#-numerical-coerce) description.
+
+```rhumb
+unix-time .= +07/16/2023
+```
+
 ### `-` Numerical Negate
+
+See [field op](#--numerical-negate) description.
+
+```rhumb
+flipped .= -num
+```
 
 ### `=` Logical Coerce
 
+See [field op](#-logical-coerce) description.
+
+```rhumb
+foo := =bar => 'bar is true' ~> 'bar is false'
+```
+
 ### `~` Logical Negate
 
+See [field op](#-logical-negate) description.
+
+```rhumb
+toggle .= [] -> state := ~state
+```
+
 ### `&` Slurp / Spread
+
+See [field op](#-slurp--spread) description.
+
+```rhumb
+first .= [it; &rest] -> #(it)
+```
 
 ## Special Prefix Operators
 
