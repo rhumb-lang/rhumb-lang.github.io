@@ -8,20 +8,22 @@ const FeatureList = [
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        Rhumb was designed from the ground up to try new ideas.
-        Although things may be foreign, I am attempting to assemble a
-        comprehensible toolset to inspire new ideas.
+        No conventional programming syntax was considered too sacred
+        for evaluation. The end result is intended to be a thoughtful
+        attempt at a programming system without following the common
+        conventions of today's languages.
       </>
     ),
   },
   {
-    title: 'Prototypes',
+    title: 'Multiple Prototypal',
     Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        Rhumb uses the endangered technique of prototype inheritance. It takes
-        it a step further than some by offering "first-class" prototypes. Use
-        with caution!
+        One technique that Rhumb wants to resurrect from the dinosaurs
+        is prototypal inheritance. Specifically, the Self language
+        version that allows for named multiple inheritance. Rhumb takes
+        this paradigm and integrates it into its core.
       </>
     ),
   },
@@ -31,8 +33,9 @@ const FeatureList = [
     description: (
       <>
         Rhumb keeps all the words for you, the programmer. The only reserved 
-        words are <code>yes</code> and <code>no</code> (in all languages). Rhumb
-        is a global language.
+        words are <code>yes</code>, <code>no</code>, and <code>empty</code>
+        (in all languages). The Rhumb VS Code extension allows you to
+        use translation files to work across language barriers.
       </>
     ),
   },
