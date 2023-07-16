@@ -34,6 +34,30 @@ is a way to supply unlabeled arguments:
 fib .= <(#1 << 2 => #1 !> fib(#1 -- 1) ++ fib(#1 -- 2))>
 ```
 
+:::info Note: Base Expression Usage in Subroutines
+
+Whenever a subroutine uses a base expression, it causes the subroutine to shift it's default return value from the last expression to the base map. This is how Rhumb differentiates between constructors and non-constructor subroutines.
+
+```rhumb
+multiply .= [x] -> x ** 2 % returns the multiplication result
+User := [name] -> !\name := name % returns ! (base)
+```
+
+When adding methods, it's important to bind the subroutine to the appropriate base map.
+
+```rhumb
+<User>\set-age := [age] -> !\dob := Date\now\year -- age
+<User>\<set-age> .= <User>\<set-age> !! <User>
+```
+
+Rhumb gives you a shorthand way to accomplish this:
+
+```rhumb
+<User>\set-age .= [age] !> !\dob := Date\now\year -- age
+```
+
+:::
+
 ## Invocation
 
 Imagine we have a subroutine with a label of `baz`. You would invoke

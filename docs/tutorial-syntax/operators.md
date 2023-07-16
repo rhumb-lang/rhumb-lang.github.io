@@ -128,17 +128,19 @@ qux2 .= inc2(foo[:]) % foo is now explicitly copied
 % original foo is unmodified
 ```
 
-:::info Note: Reference Parameters
+:::info Note: Map References
 
-This operator allows you to bypass a function that takes a reference to an argument that the user provides by giving it a clone of the original map.
+Maps are always references so for a map labeled `m`, the expression `m` and `<m>` are equivalent. 
+
+This operator allows you to sever the reference by creating a clone of the corresponding map and then the expression evaluates to a reference to that new cloned map.
 
 ```rhumb
-link .= [<some-map>, val] -> some-map\foo .= val
+link .= [some-map, val] -> some-map\foo .= val
 baz .= []
 link(baz; 'wow') % baz == [foo..'wow']
 link(baz[:]; 'BAZ IS BROKEN!') % original baz is unchanged
 ```
-Since the copied `baz` is never stored anywhere, it will soon be garbage collected.
+Since the copied `baz` map is never stored anywhere, it will soon be garbage collected.
 
 :::
 
@@ -268,91 +270,365 @@ first .= [it; &rest] -> #(it)
 
 ## Special Prefix Operators
 
+Some of the field operators don't have a corresponding prefix version. This is because there already exists a prefix syntax for a different purpose. Each of these concepts requires some name or value and thus would not work as a field operator.
+
 ### `$` Argument Access
+
+Inside of subroutines, you have rudimentary access to a parameter list that is automatically created for you when you use the argument operator. This allows you to specify quick succinct subroutines without needing to use explicitly named parameter labels.
+
+```rhumb
+inc .= <($1 ++ 1)> % $1 is the first argument
+print .= <(console\log(&$0))> % $0 is all arguments
+```
 
 ### `#` Event Signal
 
+You can send events outward into any active selector by using the `#` signal operator. You can either specify a label for the signal or leave it anonymous. Anonymous signals are used for returning values out of subroutines if you don't want to wait for the final expression or if you have used a `!` base expression. 
+
+```rhumb
+User .= [name; age] -> (
+    !\name := name
+    !\dob := Date\now\year -- age
+    !\req-count := 0
+)
+<User>\request .= [amount] !> (
+    !\req-count := !\req-count ++ 1
+    result .= System\request(amount)
+    console\log(result)
+    #(result)
+)
+```
+
+Anonymous signals will trigger the nearest active selector with a default section. You can implement historical programming idioms with this system.
+
+```rhumb
+if .= cond -> =cond => #()  
+if(foo == yes) {
+    console\log("foo is true")
+}
+
+switch .= cond -> #(cond) 
+switch(getchar) {
+    'a' .. console\log("got a!")
+    'b' .. console\log("got b!")
+    unknown .. console\log("unknown value: #(unknown)")
+}
+```
+
 ### `^` Event Reply
+
+You can send results inward from a previously sent event signal. This allows you to process something in the capturing selector and then return the result or a decision back inward.
+
+```rhumb
+chat-client .= [creds] -> (
+  client .= Client(creds) {
+    $ConnError(code) .. (
+      retry .= $ConnError(code)
+      retry => client\reconnect
+    )
+  }
+)
+
+main .= [] -> (
+  chat-client(config\credentials) {
+    $ConnError(code) .. code == 403 => ^(yes)
+  }
+)
+```
+
+Additionally, you could attach a selector to the outward signal and then specify different named replies to give you additional flexibility.
+
+```rhumb
+chat-client .= [creds] -> (
+  client .= Client(creds) {
+    % if ConnError, send outward, check for replies
+    $ConnError(code) .. $ConnError(code) {
+        ^reconnect .. client\reconnect
+        ^cancel .. client\cancel
+    }
+  }
+)
+
+main .= [] -> (
+  chat-client(config\credentials) {
+    $ConnError(code) .. code {
+        403 .. ^reconnect
+        500 .. ^cancel
+    }
+  }
+)
+```
 
 ### `.` `:` Destructuring Operators
 
+To make it easier to write destructuring assignment expressions, there is a handy shorthand when the label being assigned is the same as the label being destructured.
+
+```rhumb
+foo .= [
+    bar :: 10
+    qux :: 'ten'
+]
+[.bar; :qux] .= foo % now bar and qux are free labels in scope.
+% qux is again mutable but this scoped bar is immutable now.
+```
+
 ### `` ` `` Key Literal
 
+Creating keys with ``[`]`` is useful for dynamically generating keys. When you know the key name, use a key literal.
+
+```rhumb
+project.key := 'MyAwesomeApp'[`] % needlessly verbose
+project.key .= `MyAwesomeApp
+```
 
 ## Chaining Operators
 
+There are a select few operators that work with single character sigils. These are for navigating inner map fields.
+
 ### `\` Inner Field
+
+Use this operator to get into a map's fields. You can nest these as many times as needed to get to deeper fields.
+
+```rhumb
+foo .= [
+    bar .. [
+        baz .. [
+            qux .. 'WOW!'
+        ]
+    ]
+]
+foo\bar\baz\qux == 'WOW!' % yes
+```
+
+You can use this operator with numbers too when you need to get into positional elements.
+
+```rhumb
+foo .= [
+    bar .. [
+        [
+            qux .. 'WOW!'
+        ]
+    ]
+]
+foo\bar\1\qux == 'WOW!' % yes
+```
 
 ### `@` Inner Subfield
 
+Use this operator to directly access a subfield that a map contains.
+
+```rhumb
+foo .= [
+    @value .. [
+        usage :: 0
+        value :: empty
+        get .. [] !> (
+            !\usage := !\usage ++ 1
+            #(!\value)
+        )
+        set .. [v] !> (
+            !\usage := !\usage ++ 1
+            #(!\value := v)
+        )
+    ]
+]
+foo\set(21)       % foo[@... [usage :: 1; value :: 21]]
+foo\get           % foo[@... [usage :: 2; value :: 21]]
+foo@value\set(32) % foo[@... [usage :: 3; value :: 32]]
+foo\get           % foo[@... [usage :: 4; value :: 32]]
+```
+
 ### `*` `**` Globbing
+
+You can return a list of fields by using the glob operators.
+
+```rhumb
+foo .. [
+    bar .. 1
+    baz .. 2
+]
+foo\* % ['bar'; 'baz']
+```
+
+Better yet, you can run expressions against them and each matching field will be supplied as a copy of the expression.
+
+```rhumb
+foo .. [
+    bar .. yes
+    baz .. no
+    qux .. 2
+]
+foo\* == yes % [yes; no; no]
+```
+You can even place the `*` wildcard operator inside of a partial label and it will attempt to find any matching labels.
+
+```rhumb
+foo .. [
+    red.code  .. '#FF0000'
+    red.rgb   .. RGB(255;0;0)
+    cyan.code .. '#00FFFF'
+    cyan.rgb  .. RGB(0;255;255)
+    blue.code .. '#0000FF'
+    blue.rgb  .. RGB(0;0;255)
+]
+foo\*.code -> foo\$0 % ['#FF0000'; '#00FFFF'; '#0000FF']
+```
+
+If you have an arbitrarily nested map, you can use the `\\` binary operator coupled with the wildcard operator to get an even larger search pattern.
+
+```rhumb
+foo .. [
+    bar .. [
+        bar.value .. 10
+    ]
+    baz .. [
+        qux .. [
+            qux.value .. 20
+        ]
+    ]
+]
+foo\\*.value -> foo\\$0 % [10; 20]
+```
 
 ## Binary Operators
 
 ### `++` Addition
 
+Both sides are coerced into numeric values and then the second value is added to the first value and the result is returned.
+
 ### `--` Subtraction
+
+Both sides are coerced into numeric values and then the second value is subtracted from the first value and the result is returned.
 
 ### `**` Multiplication
 
+Both sides are coerced into numeric values and then the first value is multiplied by the second value and the result is returned.
+
 ### `^^` Exponent
+
+Both sides are coerced into numeric values and then the first value is taken to the power of the second value and the result is returned.
 
 ### `//` Decimal Division
 
+Both sides are coerced into numeric values and then the first value is divided by the second value and the result is returned. The result is always in rational (decimal) notation.
+
 ### `+/` Integer Division
+
+Both sides are coerced into numeric values and then the first value is divided by the second value and the result is returned. The result is always rounded to the floor integer and then returned as a whole number.
 
 ### `-/` Remainder
 
+Both sides are coerced into numeric values and then the first value is divided by the second value and the remainder is returned. The result is always a whole number.
+
 ### `*^` Scientific Notation
+
+Both sides are coerced into numeric values and then the first value is multiplied by the ten and taken to the power of the second value and the result is returned.
 
 ### `^/` Root / Radication
 
+Both sides are coerced into numeric values and then the second value is taken to the root of the first value and the result is returned.
+
 ### `==` Equality
+
+The left-hand side value's equality function is evaluated, if available. Otherwise, maps are checked for identity equality.
 
 ### `~~` Inequality
 
+The left-hand side value's equality function is evaluated and negated, if available. Otherwise, maps are checked for identity equality and the negation returned.
+
 ### `=@` Has Subfield
+
+The left-hand side is checked to see if it has a subfield that is equal to the map on the right-hand side. If a text is provided, the check is to see if there exists a subfield with a corresponding label that equals the text value.
 
 ### `~@` Doesn't have subfield
 
-### `=!` Is Bound To
-
-### `~!` Isn't Bound To
+The left-hand side is checked to see if it does not have a subfield that is equal to the map on the right-hand side. If a text is provided, the check is to see if there does not exist a subfield with a corresponding label that equals the text value.
 
 ### `=\` Has Field
 
+The left-hand side is checked to see if it has a field that is equal to the map on the right-hand side. If a text is provided, the check is to see if there exists a field with a corresponding label that equals the text value.
+
 ### `~\` Doesn't Have Field
+
+The left-hand side is checked to see if it does not have a field that is equal to the map on the right-hand side. If a text is provided, the check is to see if there does not exist a field with a corresponding label that equals the text value.
 
 ### `>>` Greater Than
 
+Both sides are coerced into numeric values and then a comparison is performed to determine if the first value is greater than the second. If so, then the result is `yes`, else the result is `no`.
+
 ### `<<` Less Than
+
+Both sides are coerced into numeric values and then a comparison is performed to determine if the first value is less than the second. If so, then the result is `yes`, else the result is `no`.
 
 ### `>=` Greater Than or Equal
 
+Both sides are coerced into numeric values and then a comparison is performed to determine if the first value is greater than or equal to the second. If so, then the result is `yes`, else the result is `no`.
+
 ### `<=` Less Than or Equal
+
+Both sides are coerced into numeric values and then a comparison is performed to determine if the first value is less than or equal to the second. If so, then the result is `yes`, else the result is `no`.
 
 ### `/\` Logical Conjunction
 
+Both left and right sides are evaluated and converted to boolean values. If both sides evaluate to `yes`, then the result of the expression is `yes`. Otherwise, the result is `no`.
+
 ### `\/` Logical Disjunction
+
+Both left and right sides are evaluated and converted to boolean values. If either side evaluate to `yes`, then the result of the expression is `yes`. Otherwise, the result is `no`.
 
 ### `=>` If True Then
 
+If the left-hand side evaluates to `yes` then the right-hand side is evaluated. The result of the expression is the result of the right-hand side expression.
+
+If the left-hand side evaluates to `no` then the right-hand side is never evaluated. The result of the expression is then `empty`.
+
 ### `~>` If False Then
+
+If the left-hand side evaluates to `no` or `empty`, then the right-hand side is evaluated. The result of the expression is the result of the right-hand side expression.
+
+If the left-hand side evaluates to anything else, then the right-hand side is never evaluated. The result of the expression is then the `empty`.
 
 ### `||` Pipe
 
+Take the left-hand side and evaluate, the result is then given as arguments to the right-hand side (which is either an explicit subroutine or one is created implicitly from the expression given).
+
 ### `??` Default
+
+If the left-hand side is empty, evaluate to the right-hand side, otherwise return the original left-hand side value.
 
 ### `!!` Bind
 
+Take a function or subroutine and give it a different base value than it currently has. This operation is interlally occuring when you use the `!>` operator.
+
 ### `->` Make Function
+
+When given a map or submap on the left, it is set to the parameter map of a subroutine. The subroutine is either one provided in the right-hand side of the expression or, the right-hand side is converted into a subroutine.
+
+When given a wildcard expression on the left, the wildcard operation is setup as a submap where the wildcard operation is performed whenever the corresponding subroutine is evaluated and then the resulting matched field paths are provided as the arguments to the subroutine expression on the right.
 
 ### `!>` Bound Function
 
+This is exactly like the `->` function operator, but it also sets the base `!` to be the same base as lexical location of the function. This way, the function becomes what many languages call a "method".
+
 ### `$>` Let Function (IIFE)
+
+
+This is exactly like the `->` function operator, but it executes the corresponding function immediately (and also sets the base `!` to be the same base as the lexical location of the function) instead of storing the function for later usage.
 
 ### `@@` Temporary Subfield
 
+Both sides of this operation are maps, the left is given a subfield with the label that matches the right's label. This is only active for the life of the expression but the user can assign it back to the corresponding label if permanance is desired.
+
 ### `&&` Concatenate
 
-### `##` Catch With
+When used with maps, it combines the positional elements into one and creates a new map with those positional elements.
+
+When used with text, it combines the text into one by joining them together in the order they are provided.
+
+When used with selectors, it combines the selector paths into one when evaluating.
+
+### `\\` Nested Access
+
+When used with wildcard operator, this expands the search to any inner map structure as well.
+
+When used with lists of strings, it parses the strings as paths and evaluates to the resulting inner location's value.
