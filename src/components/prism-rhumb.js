@@ -102,6 +102,14 @@ Prism.languages.rhumb = {
         pattern: /%.*|%\([\s\S]*?(:%\)|$)/,
         greedy: true,
     },
+    'base': {
+        pattern: /(?<!!)!(?!!)/,
+        alias: 'variable',
+    },
+    'wildcard': {
+        pattern: /(?<=\\[\w\.\-]*)\*/,
+        alias: 'variable',
+    },
     'truth': {
         pattern: /\b(?:yes|no)\b/,
         alias: 'boolean',
