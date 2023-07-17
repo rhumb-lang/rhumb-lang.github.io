@@ -31,7 +31,7 @@ a later time. These subroutines are just reusable code but there
 is a way to supply unlabeled arguments:
 
 ```rhumb
-fib .= <(#1 << 2 => #1 !> fib(#1 -- 1) ++ fib(#1 -- 2))>
+fib .= <($1 << 2 => $1 !> fib($1 -- 1) ++ fib($1 -- 2))>
 ```
 
 :::info Note: Base Expression Usage in Subroutines
@@ -92,12 +92,11 @@ referencing automatically.
 
 ```rhumb
 pythag .= [a; b; c] -> a^^2 ++ b^^2 // c^^2
-equiv-subroutine .= <[#1^^2 ++ #2^^2 // #3^^2]>
+equiv-subroutine .= <($1^^2 ++ $2^^2 // $3^^2)>
 ```
 
-You must supply a surrounding `[]` at least because you can provide a submap as
-a labeled value and it will become the parameter list. You can even concatenate
-two submaps together in a manner:
+For a submap or function parameters, you must supply a surrounding
+op of `[]` at the least. You can even slurp or concatenate two submaps together in a manner:
 
 ```rhumb
 person .= <[first; last; age]>
@@ -115,5 +114,4 @@ access3 .= (person && employee) -> (
         $access-denied(first; last; id)
 )
 ```
-Here, you can see how parameter lists are first-class constructs that captures
-the spirit of named arguments, records and scope.
+Here, you can see how parameter lists are first-class constructs that captures the spirit of named arguments, records and scope.
