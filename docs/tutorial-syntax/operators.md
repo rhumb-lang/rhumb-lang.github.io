@@ -322,8 +322,8 @@ You can send results inward from a previously sent event signal. This allows you
 ```rhumb
 chat-client .= [creds] -> (
   client .= Client(creds) {
-    $ConnError(code) .. (
-      retry .= $ConnError(code)
+    #ConnError(code) .. (
+      retry .= #ConnError(code)
       retry => client\reconnect
     )
   }
@@ -331,7 +331,7 @@ chat-client .= [creds] -> (
 
 main .= [] -> (
   chat-client(config\credentials) {
-    $ConnError(code) .. code == 403 => ^(yes)
+    #ConnError(code) .. code == 403 => ^(yes)
   }
 )
 ```
@@ -342,7 +342,7 @@ Additionally, you could attach a selector to the outward signal and then specify
 chat-client .= [creds] -> (
   client .= Client(creds) {
     % if ConnError, send outward, check for replies
-    $ConnError(code) .. $ConnError(code) {
+    #ConnError(code) .. $ConnError(code) {
         ^reconnect .. client\reconnect
         ^cancel .. client\cancel
     }
@@ -351,7 +351,7 @@ chat-client .= [creds] -> (
 
 main .= [] -> (
   chat-client(config\credentials) {
-    $ConnError(code) .. code {
+    #ConnError(code) .. code {
         403 .. ^reconnect
         500 .. ^cancel
     }

@@ -103,15 +103,15 @@ person .= <[first; last; age]>
 employee .= <[grade; title; id]>
 access1 .= [person; employee] -> (
     employee\grade << 23 =>
-        $access-denied(person\first; person\last; employee\id)
+        #access-denied(person\first; person\last; employee\id)
 )
 access2 .= [&person; &employee] -> (
     grade << 23 =>
-        $access-denied(first; last; id)
+        #access-denied(first; last; id)
 )
 access3 .= (person && employee) -> (
     grade << 23 =>
-        $access-denied(first; last; id)
+        #access-denied(first; last; id)
 )
 ```
 Here, you can see how parameter lists are first-class constructs that captures the spirit of named arguments, records and scope.

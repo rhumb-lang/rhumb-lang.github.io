@@ -104,8 +104,8 @@ Prism.languages.rhumb = {
         alias: 'builtin',
     },
     'signal': {
-        pattern: /#[\w\d]+/,
-        alias: 'symbol',
+        pattern: /[#\^](?:[\w\-\.]+|(?=\())/,
+        alias: 'function',
     },
     'local': {
         pattern: /\$[\w\d]+/,
