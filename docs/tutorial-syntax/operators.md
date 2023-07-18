@@ -342,7 +342,7 @@ Additionally, you could attach a selector to the outward signal and then specify
 chat-client .= [creds] -> (
   client .= Client(creds) {
     % if ConnError, send outward, check for replies
-    #ConnError(code) .. $ConnError(code) {
+    #ConnError(code) .. #ConnError(code) {
         ^reconnect .. client\reconnect
         ^cancel .. client\cancel
     }

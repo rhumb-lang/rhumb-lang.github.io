@@ -105,14 +105,25 @@ Prism.languages.rhumb = {
     },
     'signal': {
         pattern: /(?<!#)#(?:[\w\-\.]+|(?=\())|(?<!\^)\^(?:[\w\-\.]+|(?=\())/,
-        alias: 'function',
+        alias: 'keyword',
+        inside: {
+            'signal-punctuation': {
+                pattern: /^[#^]/,
+                alias: 'punctuation'
+            }
+        }
+    },
+    'reference': {
+        pattern: /(?<=<)[\w\-\.]+(?=>)/,
+        alias: 'class-name',
+        greedy: true
     },
     'local': {
         pattern: /\$[\d]+/,
-        alias: 'variable',
+        alias: 'builtin',
     },
     'punctuation': {
-        pattern: /[{}()\[\];]/,
+        pattern: /<(?![<>=])|(?<![~=!$])>(?![>=])|[{}()\[\];\\@]/,
     },
     'number': [
         {
@@ -131,17 +142,28 @@ Prism.languages.rhumb = {
     ],
     'operator': [
         {
-            pattern: /[.:^][=.:]/,
+            pattern: /[.:?+=~&](?=@|\w|\$|#|\^|`|\()/,
+            greedy: true
+        },
+        {
+            pattern: /(?<!\w|-|\+)-(?!\+|-|\/|>)/,
+            // greedy: true
+        },
+        {
+            pattern: /[\.:^][=\.:]/,
         },
         {
             pattern: /\+(?:\+|\-|\/)|\-(?:\+|\-|\/|>)|\*(?:\*|\^)|\/(?:\/|\\)|\^(?:\^|\/)/,
         },
         {
-            pattern: /[~=][=~@\\]|>[>=]|<[<=]/,
+            pattern: /=[=@\\]|~[~@\\]|>[>=]|<[<>=]/,
 
         },
         {
             pattern: /[~=!$]>|!!|\?\?/,
+        },
+        {
+            pattern: /\[(?!\w|\s).\]/
         }
     ],
     'comment': {
@@ -150,11 +172,11 @@ Prism.languages.rhumb = {
     },
     'base': {
         pattern: /(?<!!)!(?!!)/,
-        alias: 'variable',
+        alias: 'builtin',
     },
     'wildcard': {
         pattern: /(?<=\\[\w\.\-]*)\*/,
-        alias: 'variable',
+        alias: 'keyword',
     },
     'truth': {
         pattern: /\b(?:yes|no)\b/,
