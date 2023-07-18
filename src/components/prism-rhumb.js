@@ -123,7 +123,7 @@ Prism.languages.rhumb = {
         alias: 'builtin',
     },
     'punctuation': {
-        pattern: /<(?![<>=])|(?<![~=!$])>(?![>=])|[{}()\[\];\\@]/,
+        pattern: /<(?![<>=])|(?<![~=!$\-])>(?![>=])|[{}()\[\];\\@]/,
     },
     'number': [
         {
@@ -142,7 +142,11 @@ Prism.languages.rhumb = {
     ],
     'operator': [
         {
-            pattern: /[.:?+=~&](?=@|\w|\$|#|\^|`|\()/,
+            pattern: /[:?+=~&](?=@|\w|\$|#|\^|`|\()/,
+            greedy: true
+        },
+        {
+            pattern: /(?<!\*|\w)\.(?=@|\w|\$|#|\^|`|\()/,
             greedy: true
         },
         {
@@ -176,6 +180,7 @@ Prism.languages.rhumb = {
     },
     'wildcard': {
         pattern: /(?<=\\[\w\.\-]*)\*/,
+        greedy: true,
         alias: 'keyword',
     },
     'truth': {
