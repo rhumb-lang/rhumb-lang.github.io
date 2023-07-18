@@ -96,3 +96,211 @@ supply-run .= [load; &warehouse] -> (
 
 You can spread them with the `&` operator and they will flatten all their
 labels as parameters in the main parameter list (itself a submap).
+
+## Destructuring
+
+The destructuring syntax is a Rhumb expression that makes it easy to
+excise just the important data you need from a map and place them
+into labels in the current scope.
+
+### Description
+
+The map literal expression provides an easy way to create *ad hoc*
+packages of data. 
+
+```rhumb
+x .= [1; 2; 3; 4; 5]
+```
+
+The destructuring assignment uses similar syntax, but flipped to the
+left-hand side of the assignment instead. The map literal now serves
+to define what elements and fields to destructure from the sourced map.
+
+```rhumb
+x .= [1; 2; 3; 4; 5]
+[y; z] ^= x
+console\log(y) %= 1
+console\log(z) %= 2
+
+a .= [b..1; c.. 2]
+[.b;.c] ^= a
+% equivalent to
+b .= a\b; c = [a\c]
+```
+
+### Previously Declared Locations
+
+You can even destructure directly into some already existing map.
+
+```rhumb
+numbers .= []
+map .= [a..1; b..2; c..3]
+[a..numbers[1]; b..numbers[2]; c..numbers[>]] ^= map
+```
+You can use the [append](operators#-append) and [unshift](operators#-unshift) field ops as well.
+
+### Default Value
+
+Each destructured label can have a default value by using the
+[`??`](operators#-default) operator. This value will be used only if the value at this
+label is `empty`.
+
+```rhumb
+[1..a??1] ^= [] % a is 1
+[.b??2] ^= [b..empty] % a is 2
+[.c??3] ^= [c..0] % c is 0
+```
+The right-hand side of the default operator is actually
+auto-referenced as a subroutine so you can do any kind of
+expression here.
+
+```rhumb
+[.b??console\log('hey!')] ^= [b..2]
+% nothing is logged because b is not empty
+```
+
+### Slurp expressions
+
+You can take arbitrary amounts of elements of positional elements
+by using the [`&`](operators#-slurp--spread-1) operator. This element
+will greedily take all surrounding elements up to the next positional
+field given. It also greedily takes all uncaptured fields.
+
+```rhumb
+[.a; &others] ^= [a..1;b..2;c..3]
+console\log(others) % [b..2;c..3]
+
+[1..first; &others] ^= ['a';'b';'c']
+console\log(others) % [1..'b';2..'c']
+```
+You can place as many as you want within a destructuring pattern but
+only the last slurp argument will receive the fields.
+```rhumb
+[3..prefix; &name; 10..separator; &suffix] .= get-chars(file)
+% here, name contains the positional elements from 4 through 9
+% suffix contains anything 11 and after
+% (and elements 1 and 2 are ignored)
+```
+
+### Destructuring with more elements than source.
+
+In a positional destructuring pattern, you can specify elements
+that do not exist just like you can with nominal destructuring.
+
+```rhumb
+foo .= ['one'; 'two']
+[red;yellow;green;blue] ^= foo
+console\log(red) %= 'one'
+console\log(yellow) %= 'two'
+console\log(green) %= empty
+console\log(blue) %= empty
+```
+
+### Swapping variables
+
+Two labels can have their values swapped in one destructuring
+expression.
+
+```rhumb
+a := 1
+b := 3
+[a; b] ^= [b; a]
+console\log(a) %= 3
+console\log(b) %= 1
+
+fruits .= ['apples'; 'oranges'; 'bananas']
+[fruits\3; fruits\2] ^= [fruits\2; fruits\3]
+console\log(fruits) %= [1..'apples'; 2..'bananas'; 3..'oranges';]
+```
+
+### Parsing a subroutine map return
+
+You can return a map from a subroutine or function. Destructuring can
+make working with a map return value more concise.
+
+```rhumb
+dangerous .= [n] -> [yes; n ** 1,000,000.-]
+[1..success; 2..reward] ^= dangerous(5)
+console\log(success) %= yes
+console\log(reward) %= 5,000,000.-
+```
+
+### Ignoring a map field or element
+
+You can soft-ignore fields by just not referencing them in a
+destructuring pattern. However, using the slurp operator will
+inevitably cause these to be captured. You can explicitly ignore
+by using the placeholder label.
+
+```rhumb
+foo .= [a..'adam'; b..'brian'; c..'charles']
+[a.._; &names] ^= foo
+console\log(names) %= [b..'brian'; c..'charles']
+```
+To ignore positional elements, use the same placeholder but with
+a positional field.
+
+```rhumb
+fruits .= ['apples'; 'oranges'; 'bananas']
+[1.._; &non-favorites] ^= fruits
+console\log(non-favorites) %= ['oranges'; 'bananas']
+```
+
+The slurp will start from after the most recent positional field 
+has been captured. You can effectively slice into a map by just
+using destructuring syntax.
+
+```rhumb
+name .= ['j'; 'a'; 'c'; 'o'; 'b']
+[1.._;&mid;5.._] ^= name
+```
+### Taking fields from maps passed as function parameters
+
+Maps passed into function as an argument can be destructured into
+labels with then can be accessed within the subroutine. As for map
+assignment, the destructuring syntax allows for the new label to have
+the same name or a different name from the original field and to
+assign default values for the case when the original map does not
+define that field.
+
+Consider this map which contains info about a user.
+
+```rhumb
+user .= [
+    id .. 42
+    display-name :: 'jdoe'
+    full-name :: [
+        first-name :: 'Jane'
+        last-name :: 'Doe'
+    ]
+]
+```
+Here we show how to destructure a field of the passed map into a
+label with the same name. The parameter value `[.id]` indicates that
+the id field of the map passed to the function should be destructured
+into a label with the same name, which can then be used from within
+the subroutine.
+
+```rhumb
+user-id .= [[.id]] -> id
+
+console\log(user-id(user)) %= 42
+```
+
+You can define the name of the destructured label. Here we destructure
+the field named `display-name` and rename it to `dname` for use within
+the subroutine body.
+
+```rhumb
+user-display-name .= [[display-name..dname]] -> dname
+console\log(user-display-name(user)) %= 'jdoe'
+```
+
+Inner maps can also be destructured. This example shows the field
+`full-name\first-name` being destructured into a label called `name`.
+
+```rhumb
+who-is .= [[.display-name; full-name..[first-name..name]]] ->
+    "$display-name is $name"
+console\log(who-is(user)) %= jdoe is Jane
+```

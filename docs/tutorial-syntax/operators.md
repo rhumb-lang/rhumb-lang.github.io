@@ -281,7 +281,7 @@ inc .= <($1 ++ 1)> % $1 is the first argument
 print .= <(console\log(&$0))> % $0 is all arguments
 ```
 
-### `#` Event Signal
+### `#` Signal Outward
 
 You can send events outward into any active selector by using the `#` signal operator. You can either specify a label for the signal or leave it anonymous. Anonymous signals are used for returning values out of subroutines if you don't want to wait for the final expression or if you have used a `!` base expression. 
 
@@ -315,7 +315,7 @@ switch(getchar) {
 }
 ```
 
-### `^` Event Reply
+### `^` Signal Inward
 
 You can send results inward from a previously sent event signal. This allows you to process something in the capturing selector and then return the result or a decision back inward.
 
@@ -490,7 +490,42 @@ foo .. [
 foo\\*.value -> foo\\$0 % [10; 20]
 ```
 
-## Binary Operators
+## Infix Operators
+
+Operators that work on two values on either side are called infix operators. 
+
+### `.=` Assignment, Immutable
+
+The left-hand side is converted to a reference if not already one. The right-hand side is evaluated and the result is placed in the label reference location from the left-hand side. The label value is not able to be changed; it is automatically frozen upon assignment.
+
+### `:=` Assignment, Mutable
+
+The left-hand side is converted to a reference if not already one. The right-hand side is evaluated and the result is placed in the label reference location from the left-hand side. The label value is able to be changed; it can be frozen later using the `[.]` field operator.
+
+### `^=` Assignment, Destructuring
+
+The right-hand side must be a map. The left-hand side is uniquely parsed to have all the identified field or element locations assigned to a corresponding label name in the current lexical scope. It can also be assigned to fields and elements as well.
+
+```rhumb
+% positional
+[1..a;2..b] ^= map
+[1..a;3..b] ^= map
+[1..a??default;2..b] ^= map
+[1..a;2..b;&rest] ^= map
+[1..a;3..b;&rest] ^= map
+[1..a;2..b;&[.pop;.push]] ^= map % pop & push bound to map of rest
+[1..a;2..b;&[1..c;2..c]] ^= map
+
+% nominal
+[.a;.b] ^= map
+[a..a1;b..b1] ^= map
+[a..a1??default;b..b??default] ^= map
+[.a;.b;&rest]^=map
+[a..a1;b..b1;&rest]^=map
+[<key>..a]^=obj
+```
+
+See [Map Destructuring] for more info.
 
 ### `++` Addition
 

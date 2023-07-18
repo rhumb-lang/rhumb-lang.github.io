@@ -101,6 +101,7 @@ op of `[]` at the least. You can even slurp or concatenate two submaps together 
 ```rhumb
 person .= <[first; last; age]>
 employee .= <[grade; title; id]>
+access0 .= [p::person; e::employee]
 access1 .= [person; employee] -> (
     employee\grade << 23 =>
         #access-denied(person\first; person\last; employee\id)

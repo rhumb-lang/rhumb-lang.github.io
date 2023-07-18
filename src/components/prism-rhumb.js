@@ -108,7 +108,7 @@ Prism.languages.rhumb = {
         alias: 'function',
     },
     'local': {
-        pattern: /\$[\w\d]+/,
+        pattern: /\$[\d]+/,
         alias: 'variable',
     },
     'punctuation': {
@@ -131,7 +131,7 @@ Prism.languages.rhumb = {
     ],
     'operator': [
         {
-            pattern: /[.:][=.:]/,
+            pattern: /[.:^][=.:]/,
         },
         {
             pattern: /\+(?:\+|\-|\/)|\-(?:\+|\-|\/|>)|\*(?:\*|\^)|\/(?:\/|\\)|\^(?:\^|\/)/,
