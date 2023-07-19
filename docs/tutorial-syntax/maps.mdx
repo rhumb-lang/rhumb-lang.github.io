@@ -4,18 +4,26 @@ sidebar_position: 9
 
 # Maps
 
-The only compound value around. Maps are used for both positional
-data and for labeled data. Using the terms of some other
-languages, they cover the territory of "arrays" and "dictionaries."
-Think of it like Lua's tables and you've got the right idea.
+A map initializer is a semicolon-delimited sequence of zero or 
+more pairs of field names and associated values of a map, enclosed
+in square brackets `[]`. Maps can also be initialized by evaluating
+a subroutine or function that returns a map.
 
 ```rhumb
-[foo;bar] % two positional elements
+m.1 .= [a::'foo'; b::42; c::[]]
+console\log(m.1\a) % Expected output: "foo"
 ```
 
-Here we have a map with two positional values: `foo` and `bar`. Since
-labels were not provided, the values are stored in a positional array.
-They can be accessed with 1-based numerical indexes.
+
+Maps are also used for positional elements by just not giving the
+value a left-hand side field name. 
+
+```rhumb
+m.2 .= ['foo';123] % two positional elements
+console\log(m.2\2) % Expected output: 123
+```
+
+Positional elements can be accessed with 1-based numerical indexes.
 
 ```rhumb
 toppings .= ['pepperoni', 'bell peppers']
@@ -42,7 +50,7 @@ operators only.
 
 ## Access
 
-To access a map's contents, you use the postcircumfix version of
+To access a map's fields or positional elements, you use the postcircumfix version of
 the map operator `[]`. You suppy a numerical value to get positional
 elements and a text or key value to get at field elements.
 
@@ -70,6 +78,52 @@ some-map\'foo'
 some-map\"f$('o' ^^ 2)"
 ```
 The syntax `some-map\foo`, `some-map['foo']` and `some-map\'foo'` are equivalent. 
+
+## Computed Field Names
+
+Map initializer syntax also supports computed field names. That
+allows you to put an expression in brackets `<>`, that will
+be computed and used as the property name. 
+
+```rhumb
+i := 0
+a .= [
+    <"foo$(i := i ++ 1)"> :: i
+    <"foo$(i := i ++ 1)"> :: i
+    <"foo$(i := i ++ 1)"> :: i
+]
+console\log(a\foo1) %= 1
+console\log(a\foo2) %= 2
+console\log(a\foo3) %= 3
+
+items .= ['A'; 'B'; 'C']
+map .= [
+    <items>..'Hello'
+]
+console\log(map) %= "A;B;C" .. "Hello"
+console\log(map\"A;B;C") %= "Hello"
+
+param .. 'size'
+config .. [
+    <param> :: 12
+    <"mobile$(param[1]\upper-case)$(param[2|+])"> .. 4
+]
+
+console\log(config) %= [size::12; mobileSize..4]
+```
+
+### Spread fields
+
+Map literals support the spread operator. It copies the prefixed
+map's base fields (excluding subfields) from a provided map into a
+new map. Note that it also spreads the positional elements as well.
+
+```rhumb
+m1 .= [foo :: 'bar'; x :: 42]
+m2 .= [foo :: 'qux'; y :: 13]
+cloned-map .= [&m1] %= [foo::"bar";x::42]
+merged-map .= [&m1; &m2] %= [foo::"qux";x::42;y::13]
+```
 
 ## Submaps
 
@@ -303,4 +357,141 @@ Inner maps can also be destructured. This example shows the field
 who-is .= [[.display-name; full-name..[first-name..name]]] ->
     "$display-name is $name"
 console\log(who-is(user)) %= jdoe is Jane
+```
+
+### Setting a function parameter's default value
+
+Default values can be specified using assignment operators, and will
+be used as label values if a specified field does not exist in the 
+passed map.
+
+Below we show a function where the default size is `'big'`, default
+co-ordinates are `x::0; y::0` and default radius is `25`.
+
+```rhumb
+draw-chart .= [[
+    :size??'big'
+    :coords??[x::0; y::0]
+    :radius??25
+]??[]] -> (
+    console\log(size; coords; radius)
+    % do some chart drawing
+)
+
+draw-chart([coords::[x::18; y::30]; radius::30])
+```
+
+In the function submap for `draw-chart` above, the destructured
+left-hand side has a default value of an empty map `??[]`.
+
+You could also have written the function without that default.
+However, if you leave out that default value, the function will 
+look for at least one argument to be supplied when invoked, whereas
+in its current form, you can call `draw-chart` without supplying
+any arguments. Otherwise, you nead to at least supply an empty map
+literal.
+
+### Nested map destructuring
+
+
+```rhumb
+metadata .= [
+    title :: "Scratchpad"
+    translations :: [
+        {
+            locale :: "en"
+            localizationTags :: []
+            lastEdit :: "2023-07-18T21:48:37"
+            url :: "/en/docs/Tools/Scratchpad"
+            title :: "Rhumb Environment"
+        }
+    ]
+    url :: "/en-US/docs/Tools/Scratchpad"
+]
+
+[
+    title :: english-title
+    translations :: [
+        [
+            title :: locale-title
+        ]
+    ]
+] ^= metadata
+
+console\log(english-title)
+console\log(locale-title)
+```
+
+### `<>` iteration and destructuring
+
+```rhumb
+people .= [
+    [
+        name :: "Mike Smith"
+        family :: [
+            mother :: "Jane Smith"
+            father :: "Harry Smith"
+            sister :: "Samantha Smith"
+        ]
+        age :: 35
+    ]
+    [
+        name :: "Tom Jones"
+        family :: [
+            mother :: "Norah Jones"
+            father :: "Richard Jones"
+            brother :: "Howard Jones"
+        ]
+        age :: 25
+    ]
+]
+
+people <> [[name..n; family..[father..f]]] ->
+    console\log("Name: $n, Father: $f")
+% "Name: Mike Smith, Father: Harry Smith"
+% "Name: Tom Jones, Father: Richard Jones"
+```
+
+### Computed map field names and destructuring
+
+Computed field names, like on map literals, can be used 
+with destructuring.
+
+```rhumb
+key .= 'z'
+[<key>..foo] ^= [z::'bar']
+console\log(foo)
+```
+
+### Subfields are looked up when destructuring maps
+
+When desturing a map, if a field is not directly on the base
+map, it will continue to look into the attached subfields.
+
+```rhumb
+my-map .= [
+    foo :: '123'
+    @my-sub :: [
+        bar :: '456'
+    ]
+]
+[:foo; :bar] ^= my-map
+console\log(foo) % '123'
+console\log(bar) % '456'
+```
+
+### Subfields can also be directly destructured
+
+You can reference a subfield by name to destructure its contents.
+
+```rhumb
+my-map .= [
+    foo :: '123'
+    @my-sub :: [
+        bar :: '456'
+    ]
+]
+[:foo; @my-sub[:bar]] ^= my-map
+console\log(foo) % '123'
+console\log(bar) % '456'
 ```
