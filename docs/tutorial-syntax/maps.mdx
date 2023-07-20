@@ -274,9 +274,24 @@ make working with a map return value more concise.
 
 ```rhumb
 dangerous .= [n] -> [yes; n ** 1,000,000.-]
-[1..success; 2..reward] ^= dangerous(5)
+[success; reward] ^= dangerous(5)
 console\log(success) %= yes
 console\log(reward) %= 5,000,000.-
+```
+
+### Picking a first positional element
+
+If the map being destructured contains a large number of elements,
+you can pick an arbitrary point to start your positional elements. 
+In fact, you could just use this syntax for all positional
+destructuring. 
+
+```rhumb
+foo .= ['a';'b';'c';'d';'e';'f';'e';'g']
+[4..fourth; fifth; sixth]
+console\log(fourth) %= 'd''
+console\log(fifth) %= 'e'
+console\log(sixth) %= 'f'
 ```
 
 ### Ignoring a map field or element
