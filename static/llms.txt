@@ -1,0 +1,7 @@
+# Rhumb Language Context
+
+Project Name: Rhumb Language
+Description: The Rhumb programming language documentation.
+
+Documentation Sets:
+- Full Documentation: /llms-full.txt
