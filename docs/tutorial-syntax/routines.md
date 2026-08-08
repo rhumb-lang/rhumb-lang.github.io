@@ -30,21 +30,31 @@ fib .= <(?1 << 2 => ?1 !> fib(?1 -- 1) ++ fib(?1 -- 2))>
 fib(10) %= 55
 ```
 
+#### Arguments
+
+The prefix operator `?` is used to access the raw arguments passed to the current subroutine.
+
+- **`?1` ... `?N`**: Accesses the Nth argument (1-based index).
+- **`?0`**: Accesses the full list of arguments as a Map.
+- **Behavior**: Accessing an index that was not passed evaluates to `___` (Empty).
+
 :::info Note: Base Expression Usage in Subroutines
 
-Whenever a subroutine uses a base expression, it causes the subroutine to shift it's default return value from the last expression to the base map. This is how Rhumb differentiates between constructors and non-constructor subroutines.
+Whenever a subroutine uses a base expression, it causes the subroutine to shift it's default return value from the last expression to the base map. If the user doesn't want this behavior, they must explicitly return a value at the end of the subroutine. This is how Rhumb differentiates between constructors and non-constructor subroutines.
 
 ```rhumb
-multiply .= [x] -> x ** 2 % returns the multiplication result
-User := [name] -> !\name := name % returns ! (base)
+multiply .= [x] -> x ** 2 % returns the last expression's value
+User := [name] -> !\name := name % returns ! (the base map)
 ```
 
-When adding methods, it's important to bind the subroutine to the appropriate base map.
+When adding "methods" (subroutines that extend the base map), it's important to bind the subroutine to the appropriate base map.
 
 ```rhumb
 <User>\set-age := [age] -> !\dob := Date\now\year -- age
 <User>\<set-age> .= <User>\<set-age> !! <User>
 ```
+
+Otherwise, the subroutine will use its own base map containing only the fields defined during the routine's code.
 
 Rhumb gives you a shorthand way to accomplish this:
 
@@ -56,9 +66,7 @@ Rhumb gives you a shorthand way to accomplish this:
 
 ## Invocation
 
-Imagine we have a subroutine with a label of `baz`. You would invoke
-by just referencing it. If you want to supply arguments, you can include
-a postfix set of parentheses but they are not required.
+Imagine we have a subroutine with a label of `baz`. You would invoke by just referencing it. If you want to supply arguments, you can include a postfix set of parentheses but they are not required when there are no arguments.
 
 ```rhumb
 baz   % same as
@@ -74,22 +82,17 @@ baz(1; two)
 
 :::tip Why no comma operator?
 
-Because commas are part of numbers as per some cultural conventions.
-Commas don't make sense in labels like periods do so they are used
-only in the number token and in the prefix reply operator.
+Because commas are part of numbers as per some cultural conventions. Commas aren't as intuitive as periods are (due to existing technical culture) when parsing labels, so they are only used within number tokens as either a decimal separator or for grouping thousands.
 
 :::
 
 ## Functions
 
-When you want to explicitly name the arguments that are supplied to a
-subroutine, provide them with a [submap](maps.mdx#submaps). A submap is normally
-delinaeated with a `<[...]>` but the `->` function operator will do the
-referencing automatically.
+When you want to explicitly name the arguments that are supplied to a subroutine, provide them with a [submap](maps.mdx#submaps). A submap is normally delinaeated with a `<[...]>` but the `->` function operator will do the referencing (`<...>`) automatically.
 
 ```rhumb
 pythag .= [a; b; c] -> a^^2 ++ b^^2 // c^^2
-equiv-subroutine .= <($1^^2 ++ $2^^2 // $3^^2)>
+equiv-subroutine .= <(?1^^2 ++ ?2^^2 // ?3^^2)>
 ```
 
 For a submap or function parameters, you must supply a surrounding
@@ -98,15 +101,38 @@ op of `[]` at the least. You can even slurp or concatenate two submaps together 
 ```rhumb
 person .= <[first; last; age]>
 employee .= <[grade; title; id]>
-access0 .= [p::person; e::employee]
-access1 .= [person; employee] -> (
+
+% 'person' and 'employee' are just argument labels here
+accessWrong .= [person; employee] -> (...)
+
+% The ref. ops `<...>` around a label inside of a submap
+% literal treats the label as a reference to a value
+% instead of an argument label. This allows you to keep
+% the structure of a submap in tact.
+access1 .= [<person>; <employee>] -> (
     employee\grade << 23 =>
-        #access-denied(person\first; person\last; employee\id)
+        #access-denied(
+            person\first;
+            person\last;
+            employee\id
+        )
 )
+
+% Instead of using the reference operator, you can supply
+% the submaps using the spread operator '&'. This
+% references all fields from the submaps into the current
+% routine's scope. This avoids the need for writing the
+% labels out with the `\` operator.
 access2 .= [&person; &employee] -> (
     grade << 23 =>
         #access-denied(first; last; id)
 )
+
+% Instead of using the reference operator or the spread
+% operator, you can use the concat operator '&&'. This
+% concatenates the two submaps together. Because we're
+% using a routine `(...)`, the resulting submap is then
+% used as the function's parameter list.
 access3 .= (person && employee) -> (
     grade << 23 =>
         #access-denied(first; last; id)
