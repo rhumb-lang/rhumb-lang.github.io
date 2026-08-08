@@ -8,30 +8,26 @@ Collections of sequential expressions. Routines are your basic
 parentheses-based grouping mechanism.
 
 ```rhumb
-(one;2)
+(one; two)
 ```
 
-Two labels in a routine. In Rhumb, the only separator is `;` as
-the `,` operator is non-existent.
-
-Routines are evaluated first and each one contains a mini-environment
-that you can provide new label bindings or any other expressions.
+This example shows two labels in a routine. Each expression separated by `;` is executed and the routine evaluates to the last expression. Any expressions preceding the last one are discarded. If you try to assign a routine to a label or field, you will only store the result, not the routine itself.
 
 ## Subroutines
 
 When you want to store a routine and execute it at a later time,
-place it in `<()>` and it will be converted into a reference routine.
-Reference routines are known as **subroutines** in Rhumb.
+place the parentheses within angle brackets (`<()>`) and it will be converted into a reference routine.
+Reference routines are known as **subroutines** in Rhumb. The result of evaluating a subroutine is the stored reference to an anonymous routine.
 
 ```rhumb
 <(foo; bar)>
 ```
-You would then supply a label to this value and could invoke it at
-a later time. These subroutines are just reusable code but there
-is a way to supply unlabeled arguments:
+
+To use a subroutine, you would supply a label to this value and then invoke it at a later time. These subroutines are just reusable code but there is a way to supply unlabeled arguments:
 
 ```rhumb
-fib .= <($1 << 2 => $1 !> fib($1 -- 1) ++ fib($1 -- 2))>
+fib .= <(?1 << 2 => ?1 !> fib(?1 -- 1) ++ fib(?1 -- 2))>
+fib(10) %= 55
 ```
 
 :::info Note: Base Expression Usage in Subroutines
@@ -61,7 +57,7 @@ Rhumb gives you a shorthand way to accomplish this:
 ## Invocation
 
 Imagine we have a subroutine with a label of `baz`. You would invoke
-by just referencing it. If you want to supply arguments, you can include 
+by just referencing it. If you want to supply arguments, you can include
 a postfix set of parentheses but they are not required.
 
 ```rhumb
@@ -75,6 +71,7 @@ using the `;` operator.
 ```rhumb
 baz(1; two)
 ```
+
 :::tip Why no comma operator?
 
 Because commas are part of numbers as per some cultural conventions.
@@ -115,4 +112,5 @@ access3 .= (person && employee) -> (
         #access-denied(first; last; id)
 )
 ```
+
 Here, you can see how parameter lists are first-class constructs that captures the spirit of named arguments, records and scope.

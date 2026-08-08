@@ -119,7 +119,7 @@ Prism.languages.rhumb = {
         greedy: true
     },
     'local': {
-        pattern: /\$[\d]+/,
+        pattern: /\?[\d]+/,
         alias: 'builtin',
     },
     'punctuation': {
