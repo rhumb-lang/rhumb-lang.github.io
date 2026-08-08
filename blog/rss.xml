@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+    <channel>
+        <title>The Rhumb Language Blog</title>
+        <link>https://rhumb-lang.org/blog</link>
+        <description>The Rhumb Language Blog</description>
+        <lastBuildDate>Mon, 08 May 2023 00:00:00 GMT</lastBuildDate>
+        <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+        <generator>https://github.com/jpmonette/feed</generator>
+        <language>en</language>
+        <item>
+            <title><![CDATA[Flattening VM & Generic Troubles]]></title>
+            <link>https://rhumb-lang.org/blog/flat-go-generics</link>
+            <guid>https://rhumb-lang.org/blog/flat-go-generics</guid>
+            <pubDate>Mon, 08 May 2023 00:00:00 GMT</pubDate>
+            <description><![CDATA[So, after reading a few articles that inspired, I have started a branch on rhi]]></description>
+            <content:encoded><![CDATA[<p>So, after reading a few articles that inspired, I have started a branch on <code>rhi</code>
+that will be for no nan-boxing and just straight Go structs inside of a large array.
+I am not playing with slices right now because I don't particularly like how they
+can be attached to old backing array and I had some trouble with that in my previous
+Go project.</p>
+<p>Adrian Sampson's article <a href="https://www.cs.cornell.edu/~asampson/blog/flattening.html" target="_blank" rel="noopener noreferrer" class="">Flattening ASTs (and Other Compiler Data Structures)</a>
+was a great read and reminded me that I often make problems bigger than they need
+to be. I was chasing this ridiculous floating point NAN approach and didn't stop
+to think about how that was slowing me down.</p>
+<p>On my new branch, I now have object types and a working generator. I originally
+tried to play with a doubly-nested set of interfaces so that the outer type represents
+the Code type and the inner type represents the Object type. The problem is that
+I was hitting an error with Golang's generics where interfaces can't be used for
+derived types. Look at this <a href="https://go.dev/play/p/VTRkqnrHMj8" target="_blank" rel="noopener noreferrer" class="">example</a> in the Go Playground.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#403f53;--prism-background-color:#FBFBFB"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#403f53;background-color:#FBFBFB"><code class="codeBlockLines_e6Vv"><div class="token-line" style="color:#403f53"><span class="token plain">./prog.go:45:24: cannot use red (variable of type RedCar[Dynamite]) as TrainCar[Loadable] value in argument to append: RedCar[Dynamite] does not implement TrainCar[Loadable] (wrong type for method GetTarget)</span><br></div><div class="token-line" style="color:#403f53"><span class="token plain">		have GetTarget() Dynamite</span><br></div><div class="token-line" style="color:#403f53"><span class="token plain">		want GetTarget() Loadable</span><br></div><div class="token-line" style="color:#403f53"><span class="token plain">./prog.go:45:29: cannot use blue (variable of type BlueCar[Passengers]) as TrainCar[Loadable] value in argument to append: BlueCar[Passengers] does not implement TrainCar[Loadable] (wrong type for method GetTarget)</span><br></div><div class="token-line" style="color:#403f53"><span class="token plain">		have GetTarget() Passengers</span><br></div><div class="token-line" style="color:#403f53"><span class="token plain">		want GetTarget() Loadable</span><br></div></code></pre></div></div>
+<p>Because of this, I had to do a small rewrite (smaller than I anticipated) and now
+it is satisfing all errors and prints the code and value to the console.</p>
+<p>There is a ton more to do just for feature parity with the old but I am making
+much faster proces thjan previously.</p>]]></content:encoded>
+            <category>golang</category>
+            <category>vm</category>
+            <category>compiler</category>
+        </item>
+        <item>
+            <title><![CDATA[Rhumb Is Online]]></title>
+            <link>https://rhumb-lang.org/blog/rhumb-is-online</link>
+            <guid>https://rhumb-lang.org/blog/rhumb-is-online</guid>
+            <pubDate>Wed, 15 Mar 2023 00:00:00 GMT</pubDate>
+            <description><![CDATA[Ok, I have hosting now through bloc.host and am up at https://rhumb-lang.org! I'm continuing to flesh out more detail in syntax sections and then I hope to get some compiler work done.]]></description>
+            <content:encoded><![CDATA[<p>Ok, I have hosting now through <a href="https://bloc.host/" target="_blank" rel="noopener noreferrer" class="">bloc.host</a> and am up at <a href="https://rhumb-lang.org/" target="_blank" rel="noopener noreferrer" class="">https://rhumb-lang.org</a>! I'm continuing to flesh out more detail in syntax sections and then I hope to get some compiler work done.</p>
+<p>In order to get maps ready to go, I need to also have the working legend system and that also requires a meta-legend and I am still not sure how to best organize the code.</p>
+<p>The issue is because I have this intermediate understanding of the Self architecture and I am trying to mirror that in Rhumb but also through the lens of Go. It doesn't help that I spent a month away from the codebase and my Go familiarity is mediocre at best. So it's taking some time to get back up to speed one exactly where I left off and how I can carry the work foward.</p>
+<p>That's all that I can really say until I've gotten more stuck-in. See you all in the next one!</p>]]></content:encoded>
+            <category>new-site-2023</category>
+            <category>administrivia</category>
+            <category>roadmap</category>
+        </item>
+        <item>
+            <title><![CDATA[Rhumb Is Up]]></title>
+            <link>https://rhumb-lang.org/blog/rhumb-is-up</link>
+            <guid>https://rhumb-lang.org/blog/rhumb-is-up</guid>
+            <pubDate>Tue, 14 Mar 2023 00:00:00 GMT</pubDate>
+            <description><![CDATA[I have setup the site and am getting the first blog put together. Going to leave these beautiful plushies in here for good measure:]]></description>
+            <content:encoded><![CDATA[<p>I have setup the site and am getting the first blog put together. Going to leave these beautiful plushies in here for good measure:</p>
+<p><img decoding="async" loading="lazy" alt="Docusaurus Plushie" src="https://rhumb-lang.org/assets/images/docusaurus-plushie-banner-a60f7593abca1e3eef26a9afa244e4fb.jpeg" width="1500" height="500" class="img_ev3q"></p>
+<p>Now, where were we? Oh yeah! Rhumb! You will learn more about the language in many more posts to come. Keep reading for insights into the current status and rough roadmap for the year ahead.</p>
+<p>The site is barebones and many pages aren't filled out but I do have a fair amount of content already mostly there. It just needs to get organized from my horrible smattering of notes.</p>
+<p>That said, the language itself is not quite up to snuff. I am doing this documentation exercise to get myself back into the right frame of mind to begin development again.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-is-it-at-currently">Where is it at currently?<a href="https://rhumb-lang.org/blog/rhumb-is-up#where-is-it-at-currently" class="hash-link" aria-label="Direct link to Where is it at currently?" title="Direct link to Where is it at currently?" translate="no">​</a></h3>
+<p>The language can compile basic labels and do basic math. That's about it. Maps are my next step and I want to make sure I get all the pieces right so that they don't require any re-working later. This bit of code will be the foundation for pretty much everything else that follows, data-wise.</p>
+<p>Once maps are done, my plan is to first do simple selectors (enough to accomplish basic conditional functionality), then to functions and strings. After that, likely I will need to do another refinement pass on maps and make sure the protype system is bug-free.</p>
+<p>Once all of that work is done I want to do another release and polish and expand the CLI and tooling support.</p>
+<p>After that, I will go to signal selectors, libraries, and other tooling.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-long-will-that-take">How long will that take?<a href="https://rhumb-lang.org/blog/rhumb-is-up#how-long-will-that-take" class="hash-link" aria-label="Direct link to How long will that take?" title="Direct link to How long will that take?" translate="no">​</a></h3>
+<p>Likely more than a year. I work full time, have a girlfriend, a son, and several other hobbies. Often times, I wait for my interest to pique and then try to put in as much time as possible. I have a tendency to burn out and need recharges on programming due to cramming and life encroachment. At some point, if the interest is there and the language feels far enough along, I may take some time off to work on Rhumb so that I can improve the velocity but it's way too early for that kind of thing.</p>
+<p>Expect more blog posts about design choices and novel elements of Rhumb.</p>
+<p>Thanks for reading!</p>]]></content:encoded>
+            <category>new-site-2023</category>
+            <category>administrivia</category>
+        </item>
+    </channel>
+</rss>
