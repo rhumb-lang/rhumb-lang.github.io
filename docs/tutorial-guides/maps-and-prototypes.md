@@ -217,4 +217,5 @@ you .= [ name .. 'Reader' ]
 - **Fields** hold state or behavior.
 - **Subfields (`@`)** allow delegation (inheritance).
 - **`!`** accesses the current object (self).
-- **`!>`** defines methods that bind `!`.
+- **`->`** defines functions that do not bind `!`; instead `!` is set when the function is called.
+- **`!>`** defines bound functions that bind `!` to where the function was defined.
