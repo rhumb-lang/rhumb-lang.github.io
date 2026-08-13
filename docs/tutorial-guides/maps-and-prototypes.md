@@ -173,8 +173,8 @@ Sometimes you want to bypass the standard lookup or access a specific prototype 
 
 ## Methods vs Functions
 
-- **`->` (Function)**: A standard function. Does not bind `!`. Useful for pure logic or callbacks where context doesn't matter.
-- **`!>` (Bound Function/Method)**: Binds `!` to the object it was called on. Essential for object behavior.
+- **`->` (Function)**: A standard function. Does not bind `!` until it is called, and then it is bound to the object it was called on. Useful for inherited methods.
+- **`!>` (Bound Function/Method)**: Binds `!` to the object it was defined in. Essential for object behavior.
 
 ## Dynamic Dispatch
 
@@ -184,10 +184,10 @@ Because maps are dynamic, you can add or change behavior at runtime.
 robot .= [ .@vehicle ]
 robot\type := 'Robot'
 
-% Add a new method dynamically
-robot\say-hello := [] !> console\log("Beep boop")
+% Add a new method dynamically, binding it to robot
+robot\say-hello := [] !> "Beep boop"
 
-robot\say-hello
+robot\say-hello %= "Beep boop"
 ```
 
 ## Manual Binding (`!!`)
