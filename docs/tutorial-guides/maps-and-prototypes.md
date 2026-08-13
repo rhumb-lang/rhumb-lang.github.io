@@ -8,35 +8,37 @@ Rhumb follows a prototype-based object-oriented programming model, similar to th
 
 ## Maps as Objects
 
-A Map is a collection of **fields** (key-value pairs) and **positional elements** (list items). Maps serve as both data structures and objects.
+A Map is a collection of **fields** (key-value pairs). Maps serve what other languages would call objects.
 
 ```rhumb
-% A simple map acting as an object
-point .= [
+point.1 .= [
     x :: 10
     y :: 20
-    
+
     % A method using the base operator '!' to access self
-    print .. [] !> console\log("Point: $(!\x), $(!\y)")
+    distance .. [other] !> 2 ^/ ( !\x - other\x ) + ( !\y - other\y )
 ]
 
-point\print % Output: Point: 10, 20
+point.2 .= [x::10; y::20]
+
+point.1\distance(point.2) //?= 2
 ```
 
 ## Shorthand Syntax
 
 Inside a map literal, the `.` and `:` prefix operators serve as shorthand for assigning variables to fields of the same name.
 
-*   **Immutable (`.`)**: `[.foo]` is equivalent to `[foo..foo]`. It assigns the variable `foo` to the field `foo` immutably.
-*   **Mutable (`:`)**: `[:foo]` is equivalent to `[foo::foo]`. It assigns the variable `foo` to the field `foo` mutably.
+- **Immutable (`.`)**: `[.foo]` is equivalent to `[foo..foo]`. It assigns the variable `foo` to the field `foo` immutably.
+- **Mutable (`:`)**: `[:foo]` is equivalent to `[foo::foo]`. It assigns the variable `foo` to the field `foo` mutably.
 
 This shorthand works for subfields as well. For example, `[.@bar]` is equivalent to `[@bar..bar]`.
 
 :::info Context Matters
 Outside of a map literal, these prefix operators have different meanings:
-*   **`.`** freezes a value (Make Immutable).
-*   **`:`** creates a copy of a value (Clone).
-:::
+
+- **`.`** freezes a value (Make Immutable).
+- **`:`** creates a copy of a value (Clone).
+  :::
 
 ## Slots and Lookup
 
@@ -53,22 +55,24 @@ Subfields are special fields in a map that act as parents or prototypes. If a sl
 % The prototype
 vehicle .= [
     type :: 'Generic Vehicle'
-    describe .. [] !> console\log("This is a $(!\type)")
+    describe .. [] -> "This is a $(!\type)"
 ]
 
 % The child map inheriting from vehicle
 car .= [
     % .@vehicle syntax adds 'vehicle' as a subfield/prototype
     .@vehicle
-    
+    @vehicle .. vehicle % Equivalent to .@vehicle
+
     % Overriding a field
     type :: 'Car'
 ]
 
-car\describe % Output: This is a Car
+car\describe %= "This is a Car
 ```
 
 In this example:
+
 1. `car\describe` is called.
 2. Rhumb looks for `describe` in `car`. It's not found.
 3. Rhumb checks the subfield `vehicle`. `describe` is found there.
@@ -76,21 +80,41 @@ In this example:
 
 ## The Base (`!`)
 
-When a function is defined with the `!>` operator (Bound Function), it acts as a method. Inside the function, the `!` operator gives you access to the **base** map (the receiver of the message). This is equivalent to `self` or `this` in other languages.
+When a function is defined with the `->` operator (Unbound Function), it acts as a method. Inside the function, the `!` operator gives you access to the **base** map (the receiver of the message) where the function is called. This is equivalent to `self` or `this` in other languages.
 
 ```rhumb
 counter .= [
     count :: 0
-    increment .. [] !> !\count := !\count ++ 1
+    increment .. [] -> !\count := !\count ++ 1
 ]
 
 counter\increment
 console\log(counter\count) % 1
 ```
 
+When a function is defined with the `!>` operator, it is a bound function and the base map is bound to where it was **defined**. The base map is effectively a part of the function definition, not passed in when the function is invoked.
+
+````rhumb
+counter .= [
+    count :: 0
+    increment :: [] -> !\count := !\count ++ 1
+]
+
+otherCounter .= [
+    shadowCount :: 0
+    increment .. [] !> ( !\shadowCount := !\shadowCount ++ 1)
+]
+
+counter\increment := otherCounter\increment
+
+counter\increment % Because increment was bound to otherCounter, it uses otherCounter's base
+counter\count %= 0
+otherCounter\shadowCount %= 1
+```
+
 ## Implicit Base Return
 
-If a subroutine accesses the base (`!`), it will automatically return the base upon completion, unless a signal (`#`) is explicitly sent.
+If a subroutine accesses the base (`!`), it will automatically return the base upon completion, unless a bare signal (`#`) is explicitly sent.
 
 ```rhumb
 % '!' is accessed, so it is returned implicitly
@@ -104,7 +128,7 @@ set-b .= [val] -> (
   !\b := val
   #(val) % Return 'val' instead of '!'
 )
-```
+````
 
 ## Multiple Inheritance (Traits)
 
@@ -136,20 +160,21 @@ console\log(user\get-id)   % 12345
 
 Sometimes you want to bypass the standard lookup or access a specific prototype directly (like `super` calls).
 
-*   **`@` Operator**: Access a specific named subfield.
-    ```rhumb
-    child@parent\some-method
-    ```
+- **`@` Operator**: Access a specific named subfield.
 
-*   **`[@]` Operator**: Access all subfields as a single map.
-    ```rhumb
-    child[@]\some-method
-    ```
+  ```rhumb
+  child@parent\some-method
+  ```
+
+- **`[@]` Operator**: Access all subfields as a single map.
+  ```rhumb
+  child[@]\some-method
+  ```
 
 ## Methods vs Functions
 
-*   **`->` (Function)**: A standard function. Does not bind `!`. Useful for pure logic or callbacks where context doesn't matter.
-*   **`!>` (Bound Function/Method)**: Binds `!` to the object it was called on. Essential for object behavior.
+- **`->` (Function)**: A standard function. Does not bind `!`. Useful for pure logic or callbacks where context doesn't matter.
+- **`!>` (Bound Function/Method)**: Binds `!` to the object it was called on. Essential for object behavior.
 
 ## Dynamic Dispatch
 
@@ -188,8 +213,8 @@ you .= [ name .. 'Reader' ]
 
 ## Summary
 
-*   **Maps** are the sole object type.
-*   **Fields** hold state or behavior.
-*   **Subfields (`@`)** allow delegation (inheritance).
-*   **`!`** accesses the current object (self).
-*   **`!>`** defines methods that bind `!`.
+- **Maps** are the sole object type.
+- **Fields** hold state or behavior.
+- **Subfields (`@`)** allow delegation (inheritance).
+- **`!`** accesses the current object (self).
+- **`!>`** defines methods that bind `!`.

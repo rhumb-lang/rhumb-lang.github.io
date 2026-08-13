@@ -68,7 +68,7 @@ A label that is `empty`, no longer has any references to it, and is no longer wi
 
 Take all of the subfields of this value and consider them a single map for subsequent operations to be performed against.
 
-This operator is useful to skip over the fields within the base object that may override some underlying operation and you can then pass a label to one of the subfields instead. It allows you to perform this message passing *without actually knowing the subfield's label*.
+This operator is useful to skip over the fields within the base object that may override some underlying operation and you can then pass a label to one of the subfields instead. It allows you to perform this message passing _without actually knowing the subfield's label_.
 
 ```rhumb
 foo .= [
@@ -130,7 +130,7 @@ qux2 .= inc2(foo[:]) % foo is now explicitly copied
 
 :::info Note: Map References
 
-Maps are always references so for a map labeled `m`, the expression `m` and `<m>` are equivalent. 
+Maps are always references so for a map labeled `m`, the expression `m` and `<m>` are equivalent.
 
 This operator allows you to sever the reference by creating a clone of the corresponding map and then the expression evaluates to a reference to that new cloned map.
 
@@ -140,6 +140,7 @@ baz .= []
 link(baz; 'wow') % baz == [foo..'wow']
 link(baz[:]; 'BAZ IS BROKEN!') % original baz is unchanged
 ```
+
 Since the copied `baz` map is never stored anywhere, it will soon be garbage collected.
 
 :::
@@ -214,7 +215,7 @@ See [field op](#-copy) description.
 The `NewWarehouse` subroutine stores the first arg in `pos` field.
 
 ```rhumb
-wh2 .= NewWarehouse(:positions; 'Oak') 
+wh2 .= NewWarehouse(:positions; 'Oak')
 wh2\pos\manager := Employee('Sandra'; 1734521)
 wh3 .= NewWarehouse(:positions; 'Maple')
 wh3\pos\manager := Employee('Darius'; 4827142)
@@ -227,6 +228,21 @@ wh4 .= NewWarehouse(wh3\pos; 'Cherry')
 ```
 
 Now, `wh4` shares positions with `wh3` and changes are applied to both maps.
+
+When `:` is used prior to a subroutine, instead of copying the result of the subroutine execution, it creates a copy of the subroutine's base map. This is useful for creating constructor subroutines, otherwise any changes will be applied to the original base map.
+
+```rhumb
+WarehouseConstructor .= [pos; name] -> (
+    !\positions := pos
+    !\name := name
+    #(!) % If there is no explicit return signal, the default is to return the base map
+)
+
+wh2 .= :WarehouseConstructor(:positions; 'Oak')
+wh2\pos\manager := Employee('Sandra'; 1734521)
+wh3 .= :WarehouseConstructor(:positions; 'Maple')
+wh3\pos\manager := Employee('Darius'; 4827142)
+```
 
 ### `+` Numerical Coerce
 
@@ -283,7 +299,7 @@ print .= <(console\log(&$0))> % $0 is all arguments
 
 ### `#` Signal Outward
 
-You can send events outward into any active selector by using the `#` signal operator. You can either specify a label for the signal or leave it anonymous. Anonymous signals are used for returning values out of subroutines if you don't want to wait for the final expression or if you have used a `!` base expression. 
+You can send events outward into any active selector by using the `#` signal operator. You can either specify a label for the signal or leave it anonymous. Anonymous signals are used for returning values out of subroutines if you don't want to wait for the final expression or if you have used a `!` base expression.
 
 ```rhumb
 User .= [name; age] -> (
@@ -302,12 +318,12 @@ User .= [name; age] -> (
 Anonymous signals will trigger the nearest active selector with a default section. You can implement historical programming idioms with this system.
 
 ```rhumb
-if .= cond -> =cond => #()  
+if .= cond -> =cond => #()
 if(foo == yes) {
     console\log("foo is true")
 }
 
-switch .= cond -> #(cond) 
+switch .= cond -> #(cond)
 switch(getchar) {
     'a' .. console\log("got a!")
     'b' .. console\log("got b!")
@@ -460,6 +476,7 @@ foo .. [
 ]
 foo\* == yes % [yes; no; no]
 ```
+
 You can even place the `*` wildcard operator inside of a partial label and it will attempt to find any matching labels.
 
 ```rhumb
@@ -492,7 +509,7 @@ foo\\*.value -> foo\\$0 % [10; 20]
 
 ## Infix Operators
 
-Operators that work on two values on either side are called infix operators. 
+Operators that work on two values on either side are called infix operators.
 
 ### `.=` Assignment, Immutable
 
@@ -654,7 +671,6 @@ When given a wildcard expression on the left, the wildcard operation is setup as
 This is exactly like the `->` function operator, but it also sets the base `!` to be the same base as lexical location of the function. This way, the function becomes what many languages call a "method".
 
 ### `$>` Let Function (IIFE)
-
 
 This is exactly like the `->` function operator, but it executes the corresponding function immediately (and also sets the base `!` to be the same base as the lexical location of the function) instead of storing the function for later usage.
 

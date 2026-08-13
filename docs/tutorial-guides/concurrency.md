@@ -63,15 +63,14 @@ Realms are event subscription and state containers that can be assigned to varia
 - **Realms as Maps:** A Realm is fundamentally a **Map**.
   - It has a **Legend** and supports the standard **Prototype Model**.
   - You can access fields (`realm\config`), delegate to subfields (`realm@parent`), and attach methods directly to the Realm object.
-  - _Distinction:_ While it acts as a Map for storage/lookup, it _also_ possesses the `Space` interface for Concurrency (`#`, `$`, `<>`).
-- **Child Realm `<$>`**: Creates a standard Space. Signals uncaught in this realm bubble up to the creator's current space.
-- **Detached Realm `<|>`**: Creates a Sandboxed Space. `Parent` is set to `World` (Root). Signals hitting the ceiling are discarded/logged.
+  - _Distinction:_ While it acts as a Map for storage/lookup, it _also_ is treated specially by the VM for the purposes of concurrency operations (`#`, `$`, `<>`).
+- **Child Realm `<$>`**: Creates a standard Realm. Signals uncaught in this realm bubble up to the creator's current realm.
+- **Detached Realm `<|>`**: Creates a Sandboxed Realm. `Parent` is set to `World` (Root). Signals hitting the ceiling are discarded/logged.
 - **Opcode:** `NEW_REALM <flags>` (Flag 0: Child, Flag 1: Detached)
 
 The syntax `realm <> [ pattern ] -> { body }` acts as a generic lifecycle manager.
 
-- **Initialization:** The `SUBSCRIBE` opcode registers a daemon on the target
-  Space.
+- **Initialization:** The `OUTER _<>->_` operation registers a handler for the target Realm.
 - **Arrival (Spawn):** When a Tuple (Signal/Proclamation) matches `pattern`, a
   new Green Thread is spawned.
   - **Implicit Pinning:** Variables defined in `pattern` (e.g., `who`) act
@@ -106,12 +105,10 @@ ReadOnly .= <{
 - **Take (`..`):** The Vassal **consumes** the event. It stops bubbling in the Raw Realm. (Use for Admin/Overrides).
 - **Peek (`::`):** The Vassal **copies** the event to the user but lets it continue bubbling in the Raw Realm. (Use for Logging/Monitoring).
 
-For Proclamations (`$`), `..` (Take) hides the value from subsequent rules in the
-Vassal but **does not** remove it from the underlying Realm. To delete a
-Proclamation from the underlying Realm, the Vassal must explicitly emit an
+For Proclamations (`$`), `..` (Take) hides the value from subsequent rules in the Vassal but **does not** remove it from the underlying Realm. To delete a Proclamation from the underlying Realm, the Vassal must explicitly emit an
 `$empty` signal to the Target.
 
-**Implementation:** A `Vassal` object is a specialized `Space` object that delegates storage to a `Target`.
+**Implementation:** A `Vassal` object is a specialized `Realm` object that delegates storage to a `Target`.
 
 ### Capabilities as Ranges
 
@@ -160,29 +157,35 @@ Fields:
 
 ### The Tuple Object
 
-TBD
+A tuple is a first-class concurrency primitive in Rhumb (used for signals, replies, and proclamations).
+
+Fields:
+
+- **Realm**: Pointer to the Realm/Map this tuple is attached to
+- **Topic**: The topic of this tuple
+- **Arguments**: The arguments of this tuple
 
 ## Distributed Rhumb (Network Transparency)
 
-Rhumb treats the network as just another Space boundary. Concurrency primitives
-(`#`, `$`, `->`) work identically across local cores and remote nodes.
+Rhumb treats the network as just another Realm boundary. Concurrency primitives
+(`#`, `$`, `->`) work identically across local and remote Routes.
 
 ### Networked Realms
 
 A Realm can be bound to a Transport Layer (TCP/WebSockets).
 
-- **Syntax:** Configuration via Proclamation.
-  ```rhumb
-  node .= <$>;
-  node$connect("tcp://192.168.1.5:8080");
-  ```
+**Syntax**: Configuration via Proclamation.
 
-````
+```rhumb
+node := <$>;
+node$connect("tcp://192.168.1.5:8080");
+```
 
-- **Behavior:**
-  - **Signal (`node#msg`):** Serializes `msg` and sends it over the socket.
-  - **Proclamation (`node$state`):** Syncs state to the remote node (CRDT-like consistency).
-  - **Subscription (`node <> ...`):** deserializes incoming packets into local Tuples.
+**Behavior**:
+
+- **Signal (`node#msg`):** Serializes `msg` and sends it over the socket.
+- **Proclamation (`node$state`):** Syncs state to the remote node (CRDT-like consistency).
+- **Subscription (`node <> ...`):** deserializes incoming packets into local Tuples.
 
 ### The Freezer (Serialization Engine)
 
@@ -254,4 +257,3 @@ act as filters on the event stream.
 - **Conclusion:** **Submaps are ephemeral Vassals.** When you write `[#sig]`,
   you are defining a temporary attenuation strategy for that specific
   subscription.
-````
