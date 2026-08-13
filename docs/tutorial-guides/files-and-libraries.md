@@ -125,8 +125,7 @@ Under the hood, both the **Remote (`git`)** and **Base (`!`)** resolvers are **C
 ### Initial Library State
 
 A resolved module is not just a bag of code; it must be explicitly granted
-capabilities to interact with the outside world through a **Vassal** (see
-[§4.7](04_concurrency.md#47-vassals-facets--attenuation)).
+capabilities to interact with the outside world through a [**Vassal**](./concurrency.md#vassals-facets--attenuation).
 
 ```rhumb
 % { resolver | path | version }
