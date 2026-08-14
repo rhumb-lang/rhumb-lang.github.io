@@ -30,7 +30,7 @@ MASK_SYMBOL     :: 0x7F_FC_08_00_00_00_00_00 // Interned String ID
 
 // --- The Word Flag (Contextual Modifiers) ---
 // Bit 37: A single bit reused across different primitive types to alter behavior without allocating space
-WORD_FLAG       :: 0x00_00_00_20_00_00_00_00
+WORD_FLAG             :: 0x00_00_00_20_00_00_00_00
   FLAG_SUB_FIELD      :: 0x00_00_00_20_00_00_00_00 // Applied to Fields: Used in INNER traversal
   FLAG_HANDLED_BRANCH :: 0x00_00_00_20_00_00_00_00 // Applied to Booleans: Protects falsy successes in => ~> chains
   FLAG_MEGAMORPHIC    :: 0x00_00_00_20_00_00_00_00 // Applied to Symbols: Disables PIC caching for highly dynamic sites
@@ -53,7 +53,7 @@ MASK_PLACE          :: 0x7F_FC_40_00_00_00_00_00 // Boxed Primitive / Reference 
   MASK_PLACE_DATE   :: 0x7F_FC_40_12_00_00_00_00 // 45-bit Millisecond Epoch Timestamp in a Box
 
 // Standard Heap Objects
-MASK_MAP_ANY        :: 0x7F_FE_80_00_00_00_00_00 // Base Category
+MASK_OBJECT         :: 0x7F_FE_80_00_00_00_00_00 // Base Category
   MASK_MAP          :: 0x7F_FE_80_02_00_00_00_00 // Pure object: No positional elements
   MASK_MAP_LIST     :: 0x7F_FE_80_04_00_00_00_00 // Hybrid Map with positional backing list
   MASK_ROUTINE      :: 0x7F_FE_80_06_00_00_00_00 // Executable Code
