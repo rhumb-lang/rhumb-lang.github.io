@@ -95,8 +95,7 @@ pythag .= [a; b; c] -> a^^2 ++ b^^2 // c^^2
 equiv-subroutine .= <(?1^^2 ++ ?2^^2 // ?3^^2)>
 ```
 
-For a submap or function parameters, you must supply a surrounding
-op of `[]` at the least. You can even slurp or concatenate two submaps together in a manner:
+For a submap or function parameters, you must supply a surrounding op of `[]` at the least. You can even slurp or concatenate two submaps together in a manner:
 
 ```rhumb
 person .= <[first; last; age]>
@@ -118,19 +117,18 @@ access1 .= [<person>; <employee>] -> (
         )
 )
 
-% Instead of using the reference operator, you can supply
-% the submaps using the spread operator '&'. This
-% references all fields from the submaps into the current
-% routine's scope. This avoids the need for writing the
-% labels out with the `\` operator.
-access2 .= [&person; &employee] -> (
+% To reference all fields from the submaps into the
+% current routine's scope and avoids the need for writing
+% the labels out with the `\` operator in the body of the
+% routine:
+access2 .= [<person>\*; <employee>\*] -> (
     grade << 23 =>
         #access-denied(first; last; id)
 )
 
-% Instead of using the reference operator or the spread
-% operator, you can use the concat operator '&&'. This
-% concatenates the two submaps together. Because we're
+% Instead of using the reference operator, you can also
+% use the concat operator '&&'. This concatenates the two
+% submaps together and returns a new submap. Because we're
 % using a routine `(...)`, the resulting submap is then
 % used as the function's parameter list.
 access3 .= (person && employee) -> (

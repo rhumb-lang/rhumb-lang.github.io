@@ -4,23 +4,22 @@ sidebar_position: 9
 
 # Maps
 
-A map initializer is a semicolon-delimited sequence of zero or 
+A map initializer is a semicolon-delimited sequence of zero or
 more pairs of field names and associated values of a map, enclosed
 in square brackets `[]`. Maps can also be initialized by evaluating
 a subroutine or function that returns a map.
 
 ```rhumb
 m.1 .= [a::'foo'; b::42; c::[]]
-console\log(m.1\a) % Expected output: "foo"
+m.1\a %= 'foo'
 ```
 
-
 Maps are also used for positional elements by just not giving the
-value a left-hand side field name. 
+value a left-hand side field name.
 
 ```rhumb
 m.2 .= ['foo';123] % two positional elements
-console\log(m.2\2) % Expected output: 123
+m.2\2 %= 123
 ```
 
 Positional elements can be accessed with 1-based numerical indexes.
@@ -29,6 +28,7 @@ Positional elements can be accessed with 1-based numerical indexes.
 toppings .= ['pepperoni', 'bell peppers']
 toppings[1] %= pepperoni
 ```
+
 :::info Note: Accessing all elements
 
 If you want to grab all list elements and leave the map fields behind,
@@ -60,30 +60,33 @@ some-map[foo]
 ```
 
 The first version uses a literal value but the second version will
-evaluate the `foo` label which could either invoke a subroutine or 
+evaluate the `foo` label which could either invoke a subroutine or
 acquire direct access to the value in memory.
 
-If you supply a text or key literal, you can get access to the 
-associated field label within the map. 
+If you supply a text or key literal, you can get access to the
+associated field label within the map.
 
 ```rhumb
 some-map['foo']
 some-map["f$('o' ^^ 2)"]
 ```
+
 These can also be written with the syntax sugar `\` operator.
+
 ```rhumb
 some-map\1
 some-map\foo
 some-map\'foo'
 some-map\"f$('o' ^^ 2)"
 ```
-The syntax `some-map\foo`, `some-map['foo']` and `some-map\'foo'` are equivalent. 
+
+The syntax `some-map\foo`, `some-map['foo']` and `some-map\'foo'` are equivalent.
 
 ## Computed Field Names
 
 Map initializer syntax also supports computed field names. That
 allows you to put an expression in brackets `<>`, that will
-be computed and used as the property name. 
+be computed and used as the property name.
 
 ```rhumb
 i := 0
@@ -129,7 +132,7 @@ merged-map .= [&m1; &m2] %= [foo::"qux";x::42;y::13]
 
 Submaps are "mini-proto-environments" that allow you to specify label references
 as a sequence of elements. Each label reference element exists in a kind of
-"label limbo" where they await assignment. They can be invoked like functions 
+"label limbo" where they await assignment. They can be invoked like functions
 where each argument element gets assigned to the label element at that position.
 They can also be given to the applicative operator `->` which then becomes your
 named parameters for a function. The difference is that when invoking, you are
@@ -159,8 +162,8 @@ into labels in the current scope.
 
 ### Description
 
-The map literal expression provides an easy way to create *ad hoc*
-packages of data. 
+The map literal expression provides an easy way to create _ad hoc_
+packages of data.
 
 ```rhumb
 x .= [1; 2; 3; 4; 5]
@@ -191,6 +194,7 @@ numbers .= []
 map .= [a..1; b..2; c..3]
 [a..numbers[1]; b..numbers[2]; c..numbers[>]] ^= map
 ```
+
 You can use the [append](operators#-append) and [unshift](operators#-unshift) field ops as well.
 
 ### Default Value
@@ -204,6 +208,7 @@ label is `empty`.
 [.b??2] ^= [b..empty] % a is 2
 [.c??3] ^= [c..0] % c is 0
 ```
+
 The right-hand side of the default operator is actually
 auto-referenced as a subroutine so you can do any kind of
 expression here.
@@ -227,8 +232,10 @@ console\log(others) % [b..2;c..3]
 [1..first; &others] ^= ['a';'b';'c']
 console\log(others) % [1..'b';2..'c']
 ```
+
 You can place as many as you want within a destructuring pattern but
 only the last slurp argument will receive the fields.
+
 ```rhumb
 [3..prefix; &name; 10..separator; &suffix] .= get-chars(file)
 % here, name contains the positional elements from 4 through 9
@@ -282,9 +289,9 @@ console\log(reward) %= 5,000,000.-
 ### Picking a first positional element
 
 If the map being destructured contains a large number of elements,
-you can pick an arbitrary point to start your positional elements. 
+you can pick an arbitrary point to start your positional elements.
 In fact, you could just use this syntax for all positional
-destructuring. 
+destructuring.
 
 ```rhumb
 foo .= ['a';'b';'c';'d';'e';'f';'e';'g']
@@ -306,6 +313,7 @@ foo .= [a..'adam'; b..'brian'; c..'charles']
 [a.._; &names] ^= foo
 console\log(names) %= [b..'brian'; c..'charles']
 ```
+
 To ignore positional elements, use the same placeholder but with
 a positional field.
 
@@ -315,7 +323,7 @@ fruits .= ['apples'; 'oranges'; 'bananas']
 console\log(non-favorites) %= ['oranges'; 'bananas']
 ```
 
-The slurp will start from after the most recent positional field 
+The slurp will start from after the most recent positional field
 has been captured. You can effectively slice into a map by just
 using destructuring syntax.
 
@@ -323,6 +331,7 @@ using destructuring syntax.
 name .= ['j'; 'a'; 'c'; 'o'; 'b']
 [1.._;&mid;5.._] ^= name
 ```
+
 ### Taking fields from maps passed as function parameters
 
 Maps passed into function as an argument can be destructured into
@@ -344,6 +353,7 @@ user .= [
     ]
 ]
 ```
+
 Here we show how to destructure a field of the passed map into a
 label with the same name. The parameter value `[.id]` indicates that
 the id field of the map passed to the function should be destructured
@@ -377,7 +387,7 @@ console\log(who-is(user)) %= jdoe is Jane
 ### Setting a function parameter's default value
 
 Default values can be specified using assignment operators, and will
-be used as label values if a specified field does not exist in the 
+be used as label values if a specified field does not exist in the
 passed map.
 
 Below we show a function where the default size is `'big'`, default
@@ -400,14 +410,13 @@ In the function submap for `draw-chart` above, the destructured
 left-hand side has a default value of an empty map `??[]`.
 
 You could also have written the function without that default.
-However, if you leave out that default value, the function will 
+However, if you leave out that default value, the function will
 look for at least one argument to be supplied when invoked, whereas
 in its current form, you can call `draw-chart` without supplying
 any arguments. Otherwise, you nead to at least supply an empty map
 literal.
 
 ### Nested map destructuring
-
 
 ```rhumb
 metadata .= [
@@ -469,7 +478,7 @@ people <> [[name..n; family..[father..f]]] ->
 
 ### Computed map field names and destructuring
 
-Computed field names, like on map literals, can be used 
+Computed field names, like on map literals, can be used
 with destructuring.
 
 ```rhumb

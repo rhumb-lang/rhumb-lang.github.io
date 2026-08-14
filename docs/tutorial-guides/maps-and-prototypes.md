@@ -80,7 +80,7 @@ In this example:
 
 ## The Base (`!`)
 
-When a function is defined with the `->` operator (Unbound Function), it acts as a method. Inside the function, the `!` operator gives you access to the **base** map (the receiver of the message) where the function is called. This is equivalent to `self` or `this` in other languages.
+When a function is defined with the `->` operator (Unbound Function), it acts as a method. Inside the function, the `!` operator gives you access to the **base** map (the receiver of the message) where the function is _called_. This is equivalent to `self` or `this` in other languages.
 
 ```rhumb
 counter .= [
@@ -92,7 +92,7 @@ counter\increment
 console\log(counter\count) % 1
 ```
 
-When a function is defined with the `!>` operator, it is a bound function and the base map is bound to where it was **defined**. The base map is effectively a part of the function definition, not passed in when the function is invoked.
+When a function is defined with the `!>` operator, it is a bound function and the base map is bound to where it was _defined_. The base map is effectively a part of the function definition, not passed in when the function is invoked.
 
 ````rhumb
 counter .= [
@@ -152,8 +152,8 @@ user .= [
     name :: 'Alice'
 ]
 
-console\log(user\get-name) % Alice
-console\log(user\get-id)   % 12345
+user\get-name %= 'Alice'
+user\get-id   %= '12345'
 ```
 
 ## Accessing Subfields Directly
@@ -198,7 +198,7 @@ You can manually bind a function to a specific object using the `!!` operator. T
 identify .= [] -> !\name\upper-case
 speak .= [] -> (
   greeting .= "Hello, I'm $identify"
-  console\log(greeting)
+  #STDOUT(greeting)
 )
 
 me .= [ name .. 'Jake' ]

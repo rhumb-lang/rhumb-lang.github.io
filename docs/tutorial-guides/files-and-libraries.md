@@ -209,7 +209,7 @@ signal will dissolve into `___` (Empty), effectively sandboxing the code.
 Catalog files serve a dual purpose: they are both the **Dependency Manifest**
 (Human Intent) and the **Integrity Anchor** (Machine Reality). Rhumb
 differentiates between **Code Dependencies** (YAML Strings) and **Resource
-Dependencies** (YAML Strings inside Arrays). They must have the same name as the
+Dependencies** (YAML Strings inside Arrays). A catalog file must have the same name as the
 folder but with `@` followed by any additional label (for breaking a catalog
 into multiple files).
 
@@ -221,8 +221,7 @@ preventing "Left-Pad" incidents or malicious updates.
 
 **Catalog Format w/ Anchors:**
 
-```yaml
-# project@.rhy
+```yaml title="project@.rhy"
 -:
   # === Code Dependencies ===
   # Format: "alias: [version] [anchor]"
@@ -393,8 +392,7 @@ to rename libraries or move them without changing your source code imports.
 
 **Catalog Example:**
 
-```yaml
-# project@.rhy
+```yaml title="project@.rhy"
 -:
   # logical_name : [ original_name @ ] specific_version_or_path
   physics_engine: libs/physics ___
@@ -527,8 +525,7 @@ Options can be defined in two places:
 
 **Example:**
 
-```yaml
-# [logo_folder]@.rhy
+```yaml title="[logo_folder]@.rhy"
 -:
   # Key-based (Safe for Auto-Anchor)
   logo.png;base64: ___
@@ -560,11 +557,11 @@ content into the VM stack is inefficient. In these cases, the Resolver returns a
   - `\path`: The absolute path to the verified file on disk.
   - `\mime`: The resolved MIME type.
 - **Usage:** Base library functions accept slips directly.
-`rhumb
-    db_res := {=|database/users.db|0.1.0}  % Returns Slip
-    conn := sql\open(db_res)      % Opens the path defined in the slip
-    `
-<!-- end list -->
+
+  ```rhumb
+  db_res := {=|database/users.db|0.1.0}  % Returns Slip
+  conn := sql\open(db_res)      % Opens the path defined in the slip
+  ```
 
 **Semantics:** A Slip represents **Verified Permission** to access a specific
 asset. It does not load the asset into memory.
@@ -665,8 +662,7 @@ phys\_boxes_touch(p1, p2)
 
 ## Full Catalog Example
 
-```yaml
-# ./my_project@.rhy
+```yaml title="./my_project@.rhy"
 # one non-version key is allowed for project/shelf metadata
 my_project:
     👤: Jake Russo # author

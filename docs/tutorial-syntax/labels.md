@@ -50,3 +50,21 @@ As indicated in the warning above, each label represents a value or object in me
 ## Label Search Algorithm
 
 Labels exist within a **context** and each new line of the program extends the context's list of locals in time. Each new addition to the context is only accessible by code following it in the file. If the current context is exhausted, the VM will traverse up to a lexically "outer" scope and perform search again (later assigned labels will not be accessible in earlier contexts). This continues up-and-outward until all contexts have been exhausted at which time the VM will error out.
+
+## The Void Label (`*`)
+
+The asterisk `*` is a reserved identifier representing **The Void**. It is used to match structure without binding data.
+
+- **Behavior:** It matches any value but stores nothing.
+- **Reading:** Evaluating `*` always returns **Empty** (it never holds a value).
+- **Assignment:** Explicit assignment to `*` (e.g., `* := 10`) is a **Syntax Error**. It cannot be used as a storage target.
+- **Usage:** It is exclusively used in **Patterns** and **Destructuring** to ignore specific arguments/elements or as the default pattern for **Selectors**.
+
+## The Empty Label (`___`)
+
+The three-underscore syntax `___` is a reserved identifier representing **The Empty Value**. It is the singleton value for "nothing" in Rhumb.
+
+- **Behavior:** It matches any value but stores nothing. `a == ___` is equivalent to `a[?]`.
+- **Reading:** Evaluating `___` always returns **Empty** (it never holds a value).
+- **Assignment:** Explicit assignment to `___` (e.g., `___ := 10`) is a **Syntax Error**. It cannot be used as a storage target.
+- **Usage:** It is exclusively used in **Patterns** and **Destructuring** to ignore specific arguments/elements or as the default pattern for **Selectors**.

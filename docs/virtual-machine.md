@@ -19,7 +19,7 @@ MASK_SENTINEL   :: 0x7F_FE_00_00_00_00_00_00 // Stack boundary marker
 MASK_FAILURE    :: 0x7F_FC_00_00_00_00_00_00 // Base Failure Mask
   MASK_PROG_FAIL  :: 0x7F_FC_00_02_00_00_00_00
   MASK_MATH_FAIL  :: 0x7F_FC_00_04_00_00_00_00
-MASK_BOOLEAN    :: 0x7F_FC_40_00_00_00_00_00 // Truth Value
+MASK_TRUTH      :: 0x7F_FC_40_00_00_00_00_00 // Truth Value
   MASK_TRUE       :: 0x7F_FC_40_10_00_00_00_00
   MASK_FALSE      :: 0x7F_FC_40_20_00_00_00_00
 MASK_EMPTY      :: 0x7F_FC_80_00_00_00_00_00 // Null/Nil
@@ -40,25 +40,50 @@ WORD_FLAG       :: 0x00_00_00_20_00_00_00_00
 // WHY DISTINCT MASKS? "Zero-Dereference Type Checking".
 // By encoding the object type in the pointer, the VM avoids a RAM lookup (cache miss) just to check types during dynamic dispatch.
 
-// Virtual Machine State Objects
-MASK_VIRTUAL      :: 0x7F_FF_C0_00_00_00_00_00
-  MASK_CHUNK        :: 0x7F_FF_C0_00_00_00_00_00 // Code Coordinator
-  MASK_CONTEXT      :: 0x7F_FF_C2_00_00_00_00_00 // Execution Frame Object
-  MASK_PROCESS      :: 0x7F_FF_C4_00_00_00_00_00 // Green Thread (Actor)
-
-// First-Class Tuplespace Objects
-MASK_TUPLE        :: 0x7F_FF_E0_00_00_00_00_00
-  MASK_TUPLE_SIGNAL :: 0x7F_FF_E0_00_00_00_00_00 // `#` (Bubble Up Request)
-  MASK_TUPLE_REPLY  :: 0x7F_FF_E2_00_00_00_00_00 // `^` (Drill Down Response)
-  MASK_TUPLE_PROCL  :: 0x7F_FF_E4_00_00_00_00_00 // `$` (Static State / Assertion)
+// Literal Boxes (Places)
+MASK_PLACE          :: 0x7F_FC_40_00_00_00_00_00 // Boxed Primitive / Reference Slot
+  MASK_PLACE_FLOAT  :: 0x7F_FC_40_02_00_00_00_00 // 64-bit IEEE-754 Float in a Box
+  MASK_PLACE_FAIL   :: 0x7F_FC_40_04_00_00_00_00 // Failure in a Box
+  MASK_PLACE_TRUTH  :: 0x7F_FC_40_06_00_00_00_00 // Boolean in a Box
+  MASK_PLACE_EMPTY  :: 0x7F_FC_40_08_00_00_00_00 // Empty in a Box
+  MASK_PLACE_INT    :: 0x7F_FC_40_0A_00_00_00_00 // 32-bit Whole Number in a Box
+  MASK_PLACE_RUNE   :: 0x7F_FC_40_0C_00_00_00_00 // Unicode Character in a Box
+  MASK_PLACE_SYMBOL :: 0x7F_FC_40_0E_00_00_00_00 // Interned String ID in a Box
+  MASK_PLACE_VERS   :: 0x7F_FC_40_10_00_00_00_00 // Version in a Box
+  MASK_PLACE_DATE   :: 0x7F_FC_40_12_00_00_00_00 // 45-bit Millisecond Epoch Timestamp in a Box
 
 // Standard Heap Objects
-MASK_LEGEND     :: 0x7F_FF_80_00_00_00_00_00 // Metadata/Class descriptor
-MASK_ARRAY      :: 0x7F_FE_C0_00_00_00_00_00 // List/Vector
-MASK_SUBMAP     :: 0x7F_FE_A0_00_00_00_00_00 // Parameter Set / Data Constructor
-MASK_MAP        :: 0x7F_FE_80_00_00_00_00_00 // Object/Scope/Parameters
-MASK_SELECTOR   :: 0x7F_FE_60_00_00_00_00_00 // Pattern-Matching Block / Switch
-MASK_PLACE      :: 0x7F_FE_40_00_00_00_00_00 // Boxed Primitive/Variable Reference
+MASK_MAP_ANY        :: 0x7F_FE_80_00_00_00_00_00 // Base Category
+  MASK_MAP          :: 0x7F_FE_80_02_00_00_00_00 // Pure object: No positional elements
+  MASK_MAP_LIST     :: 0x7F_FE_80_04_00_00_00_00 // Hybrid Map with positional backing list
+  MASK_ROUTINE      :: 0x7F_FE_80_06_00_00_00_00 // Executable Code
+  MASK_SELECTOR     :: 0x7F_FE_80_08_00_00_00_00 // Pattern-Matching Block / Switch
+  MASK_SUBMAP       :: 0x7F_FE_80_0A_00_00_00_00 // Parameter Set / Data Constructor
+
+// Array Data Objects
+MASK_ARRAY          :: 0x7F_FE_80_00_00_00_00_00 // Base Category
+  MASK_LIST         :: 0x7F_FE_80_02_00_00_00_00 // Used strictly in Chunks and MapLists
+  MASK_TEXT         :: 0x7F_FE_80_04_00_00_00_00 // User-facing String type
+  MASK_SEQUENCE     :: 0x7F_FE_80_06_00_00_00_00 // Used exclusively in Chunks
+  MASK_CACHE        :: 0x7F_FE_80_08_00_00_00_00 // Polymorphic Inline Cache
+
+// Metadata & Control Objects
+MASK_LEGEND         :: 0x7F_FF_00_00_00_00_00_00
+  MASK_MAP_LEGEND   :: 0x7F_FF_00_02_00_00_00_00 // Map Metadata/Class descriptor)
+  MASK_TEXT_LEGEND  :: 0x7F_FF_00_04_00_00_00_00 // Text Metadata, delegates to backing map
+MASK_FIELD          :: 0x7F_FF_40_00_00_00_00_00 // Map Field descriptor
+
+// First-Class Tuplespace Objects
+MASK_TUPLE          :: 0x7F_FF_80_00_00_00_00_00
+  MASK_TUPLE_SIGNAL :: 0x7F_FF_80_02_00_00_00_00 // `#` (Bubble Up Request)
+  MASK_TUPLE_REPLY  :: 0x7F_FF_80_04_00_00_00_00 // `^` (Drill Down Response)
+  MASK_TUPLE_PROCL  :: 0x7F_FF_80_06_00_00_00_00 // `$` (Static State / Assertion)
+
+// Virtual Machine State Objects
+MASK_VIRTUAL      :: 0x7F_FF_C0_00_00_00_00_00
+  MASK_CHUNK        :: 0x7F_FF_C0_02_00_00_00_00 // Code Coordinator
+  MASK_CONTEXT      :: 0x7F_FF_C0_04_00_00_00_00 // Execution Frame Object
+  MASK_PROCESS      :: 0x7F_FF_C0_06_00_00_00_00 // Green Thread (Actor)
 ```
 
 ## Object Topologies & Memory Layouts
@@ -69,30 +94,30 @@ All objects allocate contiguous 64-bit word arrays in the Eden heap. Logic is di
 
 ```odin
 // THE LEGEND (Standard Map Hidden Class / Dependency Graph)
-LEGEND_OFFSET_MARK :: 0 // Value(MASK_LEGEND)
-LEGEND_OFFSET_GC_LINK :: 1 // Forwarding address / List Traversal
-LEGEND_OFFSET_FIELD_COUNT :: 2
-LEGEND_OFFSET_SUPPLY_LINK :: 3 // JIT invalidation tracking
-LEGEND_OFFSET_DEMAND_LINK :: 4 // JIT invalidation tracking
-LEGEND_OFFSET_FIELDS :: 5 // Inline absolute offset field definitions
+MAP_LEGEND_OFFSET_MARK        :: 0 // Value(MASK_LEGEND)
+MAP_LEGEND_OFFSET_GC_LINK     :: 1 // Forwarding address / List Traversal
+MAP_LEGEND_OFFSET_FIELD_COUNT :: 2
+MAP_LEGEND_OFFSET_SUPPLY_LINK :: 3 // JIT invalidation tracking
+MAP_LEGEND_OFFSET_DEMAND_LINK :: 4 // JIT invalidation tracking
+MAP_LEGEND_OFFSET_FIELDS      :: 5 // Inline absolute offset field definitions
 
-// THE ARRAY LEGEND (Metadata for Lists and Texts)
-// Arrays do not store fields. They delegate to a backing Map for OUTER ops.
-ARRAY_LEGEND_OFFSET_MARK :: 0 // Value(MASK_LEGEND)
-ARRAY_LEGEND_OFFSET_GC_LINK:: 1 // Forwarding address during Scavenge
-ARRAY_LEGEND_OFFSET_PARENT :: 2 // Pointer to a backing map containing wrappers for OUTER array ops
+// THE TEXT LEGEND (Metadata for Texts)
+// Texts do not store fields. They delegate to a backing Map for OUTER ops.
+TEXT_LEGEND_OFFSET_MARK       :: 0 // Value(MASK_LEGEND)
+TEXT_LEGEND_OFFSET_GC_LINK    :: 1 // Forwarding address during Scavenge
+TEXT_LEGEND_OFFSET_PARENT     :: 2 // Pointer to a backing map containing wrappers for OUTER array ops
 
 // THE CHUNK (JIT Coordinator - NO LEGEND)
-CHUNK_OFFSET_MARK :: 0 // Value(MASK_CHUNK)
-CHUNK_OFFSET_SEQUENCE :: 1 // Pointer to Executable Bytes
-CHUNK_OFFSET_LIST :: 2 // Pointer to GC-tracked Word Array
+CHUNK_OFFSET_MARK             :: 0 // Value(MASK_CHUNK)
+CHUNK_OFFSET_SEQUENCE         :: 1 // Pointer to Executable Bytes
+CHUNK_OFFSET_LIST             :: 2 // Pointer to GC-tracked Word Array
 
 // THE PIC ARRAY (Polymorphic Inline Cache)
-PIC_OFFSET_MARK :: 0 // Value(MASK_ARRAY)
-PIC_OFFSET_LEGEND :: 1 // Pointer to standard Array Legend
-PIC_OFFSET_LENGTH :: 2 // Boxed Integer: Number of words in payload
-PIC_OFFSET_ORIGINAL_SYM :: 3 // The original MASK_SYMBOL being looked up
-PIC_OFFSET_PAIRS :: 4 // [Legend_A, Offset_A, Legend_B, Offset_B...]
+PIC_OFFSET_MARK               :: 0 // Value(MASK_ARRAY)
+PIC_OFFSET_LEGEND             :: 1 // Pointer to standard Array Legend
+PIC_OFFSET_LENGTH             :: 2 // Boxed Integer: Number of words in payload
+PIC_OFFSET_ORIGINAL_SYM       :: 3 // The original MASK_SYMBOL being looked up
+PIC_OFFSET_PAIRS              :: 4 // [Legend_A, Offset_A, Legend_B, Offset_B...]
 ```
 
 ### Base Objects & Execution
@@ -101,42 +126,49 @@ PIC_OFFSET_PAIRS :: 4 // [Legend_A, Offset_A, Legend_B, Offset_B...]
 // THE MAP, SUBMAP, AND REALM
 // Note: Submaps and Realms share the exact same structural memory layout as a Map.
 // The distinct Mark dictates VM execution behavior.
-MAP_OFFSET_MARK :: 0 // Value(MASK_MAP) or MASK_SUBMAP
+MAP_OFFSET_MARK   :: 0 // Value(MASK_MAP) or MASK_SUBMAP
 MAP_OFFSET_LEGEND :: 1 // Includes a delegate/parent pointer field for scope chaining
 MAP_OFFSET_VALUES :: 2 // Field Values start here
 
+// THE MAPLIST (The Hybrid Layout)
+// Used when an object dynamically receives positional elements (a[0] := "foo").
+MAPLIST_OFFSET_MARK   :: 0 // Value(MASK_MAP_LIST)
+MAPLIST_OFFSET_LEGEND :: 1 // Pointer to the exact same Legend used by the pure Map
+MAPLIST_OFFSET_LIST   :: 2 // Pointer to a MASK_LIST containing the positional elements
+MAPLIST_OFFSET_VALUES :: 3 // Dynamic Field Values shift down to start here
+
 // THE PLACE (Boxed Primitive / Reference Slot)
-PLACE_OFFSET_MARK :: 0 // Value(MASK_PLACE)
+PLACE_OFFSET_MARK   :: 0 // Value(MASK_PLACE)
 PLACE_OFFSET_LEGEND :: 1
-PLACE_OFFSET_WORD :: 2 // Boxed primitive payload
+PLACE_OFFSET_WORD   :: 2 // Boxed primitive payload
 PLACE_OFFSET_VALUES :: 3 // Field Values start here
 
 // THE ROUTINE AND SELECTOR (Executable Closures)
 // Selectors are fundamentally executable code blocks. They share the exact memory layout
 // as Routines, possessing executable Chunks and lexical Scopes.
-ROUTINE_OFFSET_MARK :: 0 // Value(MASK_ROUTINE) or MASK_SELECTOR
+ROUTINE_OFFSET_MARK   :: 0 // Value(MASK_ROUTINE) or MASK_SELECTOR
 ROUTINE_OFFSET_LEGEND :: 1
-ROUTINE_OFFSET_CHUNK :: 2 // Pointer to Chunk (Executable code)
-ROUTINE_OFFSET_SCOPE :: 3 // Pointer to Captured Lexical Map (Environment)
+ROUTINE_OFFSET_CHUNK  :: 2 // Pointer to Chunk (Executable code)
+ROUTINE_OFFSET_SCOPE  :: 3 // Pointer to Captured Lexical Map (Environment)
 ROUTINE_OFFSET_VALUES :: 4 // Field Values start here
 
 // THE CONTEXT (Execution Frame - 38 Words)
-CTX_OFFSET_MARK :: 0 // Value(MASK_CONTEXT)
+CTX_OFFSET_MARK    :: 0 // Value(MASK_CONTEXT)
 CTX_OFFSET_ROUTINE :: 1 // Pointer to executing Routine/Selector
-CTX_OFFSET_CALLER :: 2 // Pointer to parent Context (Call stack)
-CTX_OFFSET_LOCALS :: 3 // Pointer to current Map of local variables
-CTX_OFFSET_PC :: 4 // ABSOLUTE pointer to current instruction
-CTX_OFFSET_SP :: 5 // Stack pointer index (0-32)
-CTX_OFFSET_STACK :: 6 // Isolated operand stack (Index 6 to 37)
+CTX_OFFSET_CALLER  :: 2 // Pointer to parent Context (Call stack)
+CTX_OFFSET_LOCALS  :: 3 // Pointer to current Map of local variables
+CTX_OFFSET_PC      :: 4 // ABSOLUTE pointer to current instruction
+CTX_OFFSET_SP      :: 5 // Stack pointer index (0-32)
+CTX_OFFSET_STACK   :: 6 // Isolated operand stack (Index 6 to 37)
 
 // THE PROCESS (Green Thread)
-PROC_OFFSET_MARK :: 0 // Value(MASK_PROCESS) | FLAG_ZOMBIE_PROC (if paused)
+PROC_OFFSET_MARK    :: 0 // Value(MASK_PROCESS) | FLAG_ZOMBIE_PROC (if paused)
 PROC_OFFSET_GC_LINK :: 1 // Forwarding address during Scavenge
-PROC_OFFSET_SPACE :: 2 // Pointer to Current Space (Realm)
+PROC_OFFSET_SPACE   :: 2 // Pointer to Current Space (Realm)
 PROC_OFFSET_CONTEXT :: 3 // Pointer to the currently executing Context frame
 
 // THE TUPLE (Signals, Replies, Proclamations)
-TUPLE_OFFSET_MARK :: 0 // MASK_TUPLE_SIGNAL, \_REPLY, or \_PROCL
+TUPLE_OFFSET_MARK   :: 0 // MASK_TUPLE_SIGNAL, \_REPLY, or \_PROCL
 TUPLE_OFFSET_GC_LINK :: 1 // Forwarding address during Scavenge
 TUPLE_OFFSET_REALM :: 2 // Pointer to the Realm/Map this tuple is attached to
 TUPLE_OFFSET_TOPIC :: 3 // A MASK_SYMBOL literal (e.g., 'foo')

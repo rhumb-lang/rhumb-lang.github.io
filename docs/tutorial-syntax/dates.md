@@ -17,5 +17,4 @@ mship-level := donation +/ 100
 renewal-date := 4/1/$mship-level
 ```
 
-These date values work with most of the usual mathematical and logical operators. They also offer a set of bound functions that make
-using and consuming them feature-complete.
+These date values work with most of the usual mathematical and logical operators. They also offer a set of bound functions that make using and consuming them feature-complete.
