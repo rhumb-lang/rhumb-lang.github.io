@@ -282,9 +282,10 @@ Submaps are first-class `MASK_SUBMAP` objects delineated by `<[]>`. They are a h
 - Invocation vs. Application:
   - When a Submap is invoked like a function, the VM creates a standard `MASK_MAP`, pulling arguments into the corresponding label positions.
   - When supplied to the applicative operator (`->`), it defines parameters. The Submap layout dictates the precise structure of the `CTX_OFFSET_LOCALS` Map initialized during invocation.
-- The Spread Operator (`&`):
-  - Concatenation: When spreading into a parameter definition, the VM flattens the labels directly into the target Submap
-  - Invocation: When spreading into an invocation, all fields are unpackaged and passed dynamically to the receiver exactly as originally provided.
+- To effectively "spread" labels into another Submap:
+  - Wrap the Submap in reference brackets and use the void label field access syntax (`<foo>\*`), the VM flattens the labels directly into the target Submap
+  - If you leave off the `\*`, the Submap structure will be nested inside of the target Submap.
+  - You cannot use the standard `&` operator because that acts as a "slurp" operator inside of Submaps.
 
 ## Control Flow & Algebraic Effects
 
@@ -318,6 +319,17 @@ The distinction between `..` (Take/Break) and `::` (Peek/Fallthrough) does not r
 - `..` (Take / Break): The compiler generates the Right-Hand Side (RHS) execution bytecode, and then artificially appends an `OP_OUTER \*#*` (Return) instruction to force the execution frame to exit.
 - `::` (Peek / Fallthrough): The compiler generates the RHS bytecode, but does not append a return. The Program Counter (PC) naturally falls through to evaluate the next case.
 - Else Clause: The compiler enforces (via static analysis) that exactly one expression exists without a `..` or `::` operator, ensuring a guaranteed return path for the Routine block.
+
+#### Reverse Compilation & Signal Handlers
+
+When a selector is attached directly to an expression (e.g., function calls), the compiler cannot simply compile the expression from left to right. If the compiler generates bytecode for the `foo(bar)` expression before setting up the selector block, any `#error` signals emitted inside `foo` will bypass the handler because the execution context hasn't been wrapped in the handler logic yet.
+
+To solve this, the code generator must carefully compile these structures in reverse:
+
+1. **Handler First:** It must first generate the bytecode that sets up the selector block and registers its handlers in the current execution frame.
+2. **Expression Second:** Only after the handler block is established can it weave in the bytecode to evaluate the attached expression (`foo(bar)`).
+
+This ensures that by the time the VM passes execution into the body of `foo`, the surrounding context is fully prepared to catch and handle any signals it emits.
 
 #### Compiler Backpatching for Branch Offsets
 

@@ -20,9 +20,10 @@ value a left-hand side field name.
 ```rhumb
 m.2 .= ['foo';123] % two positional elements
 m.2\2 %= 123
+m.2\foo % Error: there is no field with a label of 'foo'
 ```
 
-Positional elements can be accessed with 1-based numerical indexes.
+Positional elements can also be accessed with 1-based numerical indexes.
 
 ```rhumb
 toppings .= ['pepperoni', 'bell peppers']
@@ -33,7 +34,7 @@ toppings[1] %= pepperoni
 
 If you want to grab all list elements and leave the map fields behind,
 you can access them with the field operator `[0]`, the zeroth element
-represents only the positional elements of a given map.
+represents all of the positional elements of a given map (but no fields).
 
 :::
 
@@ -80,7 +81,8 @@ some-map\'foo'
 some-map\"f$('o' ^^ 2)"
 ```
 
-The syntax `some-map\foo`, `some-map['foo']` and `some-map\'foo'` are equivalent.
+The syntax `some-map\foo`, `some-map['foo']` and `some-map\'foo'` are equivalent because the compiler will search
+the symbol table for a symbol that matches the text value `'foo'`.
 
 ## Computed Field Names
 
@@ -95,16 +97,16 @@ a .= [
     <"foo$(i := i ++ 1)"> :: i
     <"foo$(i := i ++ 1)"> :: i
 ]
-console\log(a\foo1) %= 1
-console\log(a\foo2) %= 2
-console\log(a\foo3) %= 3
+a\foo1 %= 1
+a\foo2 %= 2
+a\foo3 %= 3
 
 items .= ['A'; 'B'; 'C']
 map .= [
-    <items>..'Hello'
+    <items>..'Hello' % the compiler will convert non-field values to their text representation
 ]
-console\log(map) %= "A;B;C" .. "Hello"
-console\log(map\"A;B;C") %= "Hello"
+map %= "A;B;C" .. "Hello"
+map\"A;B;C" %= "Hello"
 
 param .. 'size'
 config .. [
@@ -112,7 +114,7 @@ config .. [
     <"mobile$(param[1]\upper-case)$(param[2|+])"> .. 4
 ]
 
-console\log(config) %= [size::12; mobileSize..4]
+config %= [size::12; mobileSize..4]
 ```
 
 ### Spread fields
@@ -144,15 +146,14 @@ foo ++ bar
 warehouse .= <[name; maximum; current::0]>
 north .= warehouse('Northside', 2,000.-)
 south .= warehouse('South River', 2,500.-)
-supply-run .= [load; &warehouse] -> (
+supply-run .= [load; <warehouse>\*] -> (
     remaining .= maximum -- current -- load
     remaining << 0 => $not-enough-space(-remaining)
     current := current ++ load
 )
 ```
 
-You can spread them with the `&` operator and they will flatten all their
-labels as parameters in the main parameter list (itself a submap).
+As you can see, to _spread_ inside of a Submap, you cannot use `&` because that acts as a "slurp" operation inside of Submaps. Instead, a Submap's parameters can be spread as arguments using the reference brackets (`<...>`) and the `\*` or `[*]` field operators.
 
 ## Destructuring
 
@@ -221,7 +222,7 @@ expression here.
 ### Slurp expressions
 
 You can take arbitrary amounts of elements of positional elements
-by using the [`&`](operators#-slurp--spread-1) operator. This element
+by using the [`&`](operators#-slurp-1) operator. This element
 will greedily take all surrounding elements up to the next positional
 field given. It also greedily takes all uncaptured fields.
 
