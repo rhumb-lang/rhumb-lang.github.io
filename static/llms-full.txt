@@ -10,19 +10,20 @@ This file contains the full documentation for the Rhumb programming language.
 sidebar_position: 1
 ---
 
-# The Rhumb Programming Language
+# What is Rhumb?
 
-Keep your mind open and enjoy!
+Rhumb is a dynamically-typed reactive multi-paradigm programming language inspired by Self and JavaScript
+incorporating the **Syndicated Actors** model and **Algebraic Effect** handlers. It has its own take on objects, message passing, and tuplespaces.
 
 ## Getting Started
 
-Download the git repo. Compile and run `grhumb` for a basic repl.
+Rhumb is a work in progress. You can get a copy of the source code by cloning [this](https://github.com/rhumb-lang/rhodin) repository.
 
-### What you'll need
+To learn about how the language works, read about the [Syntax](category/tutorial---syntax) and check the [Guides](category/tutorial---guides). The **Reference** section covers [functions](category/reference---functions) and [maps](category/reference---maps).
 
-- [Go](https://go.dev) version 1.19 or above
-- [antlr4](https://github.com/antlr/antlr4/runtime/Go/antlr/v4) v4.0.0-20221202181307
-- [acmd](https://github.com/cristalhq/acmd) v0.11.0
+## Design Philosophy
+
+Rhumb is designed to be exotic compared to traditional programming language concepts. There will be some familiar territory in that the language is still largely structured like an ALGOL-style procedural language but there are no statements, only expressions. Furthermore, objects are not created through classes but using a hidden class called a Legend. This is behind the scenes from the programmer. They interact with objects by cloning or using subroutine constructors. This is called a Prototype based object system. The twist is that these objects can have multiple parents, which creates a DAG-structured object system. Additionally, the language incorporates the Syndicated Actors model through tuplespaces called "Realms" and effect handlers called "Selectors". All of the statement and keyword based functionality of a traditional programming language is instead covered by operators and expressions.
 
 
 --- END OF FILE: intro.md ---
@@ -276,6 +277,1123 @@ It is possible to edit versioned docs in their respective folder:
 --- END OF FILE: reference-maps/toc.md ---
 
 
+--- START OF FILE: tutorial-guides/command-line-interface.md ---
+
+---
+sidebar_position: 2
+---
+
+# Command Line Interface
+
+Create your own CLI in Rhumb.
+
+Taking inspiration from Next.js and SvelteKit, Rhumb can create a CLI for you. By treating the file system itself as the configuration layer, Rhumb provides a flexible and intuitive way to build powerful command-line tools.
+
+## Starting Simple
+
+First we need to make our CLI project.
+
+```bash
+mkdir my-cli
+cd my-cli
+mkdir command-name
+touch +index.rh  # The entrypoint for a folder is +filename
+touch config.rh  # Sub-commands are determined by the filename
+mkdir user       # Sub-commands can be nested
+touch +index.rh  # The entrypoint for a folder is +filename
+touch create.rh  # Sub-sub-command
+touch delete.rh  # Sub-sub-command
+
+rho command-name # Runs +index.rh
+rho command-name --help # Auto-generated help
+rho command-name user --help # Auto-generated help for sub-commands
+rho command-name user create --help # Auto-generated help for sub-sub-commands
+rho command-name user delete --help # Auto-generated help for sub-sub-commands
+```
+
+## Adding Arguments
+
+To handle positional arguments, surround a folder name with [square brackets].
+
+```bash
+mkdir command-name
+cd command-name
+mkdir -p user/[id]
+touch user/[id]/+index.rh
+touch user/[id]/update.rh
+touch user/[id]/profile.rh
+```
+
+If a user executes `rho command-name user 123 profile`, the `id` label will be set to `"123"` and the `profile` file will be executed. The default is the file prefixed with `+` in a folder, so if a user executes `rho command-name user 123`, the `+index.rh` file will be executed.
+
+## Adding Options
+
+To handle command-line options, you add a file named with square brackets surrounding the label and inside the file is where you can handle that option. If the file just contains a block comment, it will be used as the help text for that option.
+
+```bash
+mkdir -p command-name/[id]
+touch command-name/[id]/+command.rh
+touch command-name/[id]/[role].rh
+touch command-name/[id]/[force].rh
+```
+
+```rhumb title="command-name/[id]/[role].rh"
+?role[^] == ""[^] /\ ~(
+  ?role == "admin"
+  \/ ?role == "user"
+  \/ ?role == "support"
+) => ***("Invalid role")
+
+```
+
+```rhumb title="command-name/[id]/[force].rh"
+?force[?] =>
+  ?force[^] ~~ yes[^] =>
+    ***("Force must be yes or no")
+
+```
+
+```rhumb title="command-name/[id]/+command.rh"
+?role == "admin"
+  && (?force[?] ~> ?force ~~ yes) =>
+    ***("You muse use --force when acting as an admin")
+
+```
+
+Options are available to all sub-folders in the directory tree under the folder where the option file is located. Add your global options to the root and local options to the deepest folder that needs them.
+
+## Generating Documentation
+
+The first comment block in a file is used to generate documentation for that command or option. For example, consider this file:
+
+```rhumb title="command-name/[id]/+index.rh"
+%(
+  This command will list the users in the system.
+%)
+...
+```
+
+
+--- END OF FILE: tutorial-guides/command-line-interface.md ---
+
+
+--- START OF FILE: tutorial-guides/concurrency.md ---
+
+---
+sidebar_position: 5
+---
+
+# Concurrency
+
+Rhumb replaces the traditional Call Stack with a **Hierarchical Tuplespace** based on the _Syndicated Actor Model (SAM)_. This system unifies Concurrency, Event Handling, and State Management into a single spatial metaphor.
+
+## The Conceptual Model
+
+- **The Ether:** Every executing process (Green Thread) possesses a **Local Realm**.
+- **Hierarchy:** Realms are arranged in a tree. Every Realm has a reference to its **Parent Realm** (who spawned it).
+- **Zombie Contexts:** When a process yields or pauses (e.g., waiting for a signal), its Context object is not destroyed. It remains in memory as a "Zombie," allowing deeper Contexts (Children) to "Drill Down" and reply to it later.
+
+## Operator Taxonomy
+
+The syntax distinguishes between ephemeral events and persistent state to prevent race conditions.
+
+| Feature          | Symbol  | Type  | Direction        | Semantics                                                                                                       |
+| :--------------- | :------ | :---- | :--------------- | :-------------------------------------------------------------------------------------------------------------- |
+| **Signal**       | **`#`** | Event | **Up** (Bubble)  | **Request.** Pauses execution. Bubbles up. Resumes with result of `^Reply` (or `___` if unhandled).             |
+| **Reply**        | **`^`** | Event | **Down** (Drill) | **Response.** Targets a paused Zombie Context. Injects a payload and resumes that Context.                      |
+| **Proclamation** | **`$`** | State | **Static** (Pin) | **Persistent.** Sticks to the Local Realm. To **Retract** (delete), assert the Empty Value: `realm$state(___)`. |
+
+## Realm Syntax & Lifecycle
+
+Realms can be instantiated as a **Child** or **Detached** Realm.
+
+- **Child Realm `<$>`**: Creates a standard Realm.
+  - _Behavior:_ Signals uncaught in this realm bubble up to the creator's current realm.
+  - _Use Case:_ Workers, sub-components.
+- **Detached Realm `<|>`**: Creates a Sandboxed Realm.
+  - _Behavior:_ `Parent` is set to `World` (Root). Signals hitting the ceiling are discarded/logged.
+  - _Use Case:_ Top-level servers, sandboxed plugins.
+- **Opcode:**
+  - `OUTER _<$>_` (Parent = CurrentSpace)
+  - `OUTER _<|>_` (Parent = World)
+
+## Signal Propagation (The "Helium Balloon" Algorithm)
+
+To prevent memory leaks in long-running servers, Signals (`#`) are active agents of transport.
+
+1.  **Post & Pause:** Instruction `POST` suspends the `CurrentContext` (marking it Zombie).
+2.  **Bubble:** The signal bubbles up looking for a listener.
+3.  **Outcome A (Replied):** A listener traps it and executes `INJECT ^val`. The Zombie resumes with `val` on the stack.
+4.  **Outcome B (Unhandled):** The signal hits `World`. The Zombie resumes with `___` on the stack.
+5.  **Garbage Collection:** If the Signal reaches `World` (Root) and is still uncaught, it is **discarded**. This ensures that "fire-and-forget" events do not accumulate in memory.
+
+## The "Zombie Walk" Algorithm (Reply Injection)
+
+Replies (`^`) allow a helper process to inject data back into a paused requestor.
+
+1.  **Trigger:** Instruction `INJECT ^ack` is executed in a shallow Context (e.g., an error handler).
+2.  **Scan:** The VM retrieves the **Stack Trace** of the current process.
+3.  **Descend:** It iterates _forward_ (deeper) into the stack, checking each paused "Zombie Context."
+4.  **Match:** It checks if the Zombie Context has a `TRAP_REPLY` table entry matching `^ack`.
+5.  **Resume:** If found, the VM transfers execution control **back** to that Zombie Context's Instruction Pointer (IP), passing the data arguments.
+
+## Reactive Realms & Subscriptions
+
+Realms are event subscription and state containers that can be assigned to variables.
+
+- **Realms as Maps:** A Realm is fundamentally a **Map**.
+  - It has a **Legend** and supports the standard **Prototype Model**.
+  - You can access fields (`realm\config`), delegate to subfields (`realm@parent`), and attach methods directly to the Realm object.
+  - _Distinction:_ While it acts as a Map for storage/lookup, it _also_ is treated specially by the VM for the purposes of concurrency operations (`#`, `$`, `<>`).
+- **Child Realm `<$>`**: Creates a standard Realm. Signals uncaught in this realm bubble up to the creator's current realm.
+- **Detached Realm `<|>`**: Creates a Sandboxed Realm. `Parent` is set to `World` (Root). Signals hitting the ceiling are discarded/logged.
+- **Opcode:** `NEW_REALM <flags>` (Flag 0: Child, Flag 1: Detached)
+
+The syntax `realm <> [ pattern ] -> { body }` acts as a generic lifecycle manager.
+
+- **Initialization:** The `OUTER _<>->_` operation registers a handler for the target Realm.
+- **Arrival (Spawn):** When a Tuple (Signal/Proclamation) matches `pattern`, a
+  new Green Thread is spawned.
+  - **Implicit Pinning:** Variables defined in `pattern` (e.g., `who`) act
+    as **Filters**. The thread only wakes for tuples matching that specific
+    value.
+- **Departure (Teardown):** When a Proclamation is updated to **`___`
+  (Empty)**, it is considered **Retracted**. The VM removes the tuple from
+  storage and injects a special `$empty` signal into any active subscriber
+  threads to trigger their cleanup handlers.
+
+## Vassals (Facets & Attenuation)
+
+Vassals (`<{}>`) are **Bi-Directional Proxies** used to secure a Realm or a
+Library. They enforce the _Principle of Least Privilege_ by acting as a membrane
+between a Subject and the World.
+
+**Syntax:**
+
+```rhumb
+ReadOnly .= <{
+    #allow .. #allow         % Pass-through (Consume)
+    .#allow                  % if no changes, use prefix
+    #peek :: #peek           % Pass-through (Non-destructive)
+    :#peek                   % if no changes, use prefix
+    #secret .. empty         % Block (Drop)
+    #shout(x) .. #whisper(x) % Transform
+}>
+```
+
+**Semantics:**
+
+- **Take (`..`):** The Vassal **consumes** the event. It stops bubbling in the Raw Realm. (Use for Admin/Overrides).
+- **Peek (`::`):** The Vassal **copies** the event to the user but lets it continue bubbling in the Raw Realm. (Use for Logging/Monitoring).
+
+For Proclamations (`$`), `..` (Take) hides the value from subsequent rules in the Vassal but **does not** remove it from the underlying Realm. To delete a Proclamation from the underlying Realm, the Vassal must explicitly emit an
+`$empty` signal to the Target.
+
+**Implementation:** A `Vassal` object is a specialized `Realm` object that delegates storage to a `Target`.
+
+### Capabilities as Ranges
+
+When securing a library, capabilities are defined as **IO Ranges** using the pipe operator `|`.
+
+- **Operator:** `|` (Range) creates a generic `Range` object holding `{Start: Value, End: Value}`.
+- **Vassal Interpretation:** When a Vassal encounters a Range in a pattern match, it interprets it as `Ingress | Egress`.
+
+| Side      | Term        | Direction           | Meaning                                                                 |
+| :-------- | :---------- | :------------------ | :---------------------------------------------------------------------- |
+| **Left**  | **Ingress** | `Inside <- Outside` | Data flowing _into_ the library. (Read File, Listen Port, Get Env).     |
+| **Right** | **Egress**  | `Inside -> Outside` | Data flowing _out_ of the library. (Write File, Connect Port, Set Env). |
+
+#### Common Policy Patterns
+
+1.  **Read-Only:** Block Egress with `___`.
+    ```rhumb
+    #💾( "data/*.txt" | ___ )
+    ```
+2.  **Write-Only:** Block Ingress with `___`.
+    ```rhumb
+    #💾( ___ | "/var/logs/app.log" )
+    ```
+3.  **Full Access:** Allow matching patterns on both sides.
+    ```rhumb
+    #📡( 8080 | "api.stripe.com" )
+    ```
+4.  **Reusable Policies:** Since Ranges are first-class Values, they can be defined once and applied to many libraries.
+    ```rhumb
+    web_safe := ___ | ["google.com"; "stripe.com"]
+    lib_a := {git|...|-} || <{ #📡(web_safe) }>
+    lib_b := {git|...|-} || <{ #📡(web_safe) }>
+    ```
+
+## Implementation Strategy
+
+### The Realm Object
+
+A Realm is fundamentally just a `MASK_MAP`. It has a specific Legend that defines internal VM-recognized fields:
+
+Fields:
+
+- **Parent**: Pointer to Parent Realm (or World)
+- **Proclamations**: Pointer to a Map of Proclamations (`$`)
+- **Subscriptions**: Pointer to an Array of Subscriptions (`<>`)
+
+### The Tuple Object
+
+A tuple is a first-class concurrency primitive in Rhumb (used for signals, replies, and proclamations).
+
+Fields:
+
+- **Realm**: Pointer to the Realm/Map this tuple is attached to
+- **Topic**: The topic of this tuple
+- **Arguments**: The arguments of this tuple
+
+## Distributed Rhumb (Network Transparency)
+
+Rhumb treats the network as just another Realm boundary. Concurrency primitives
+(`#`, `$`, `->`) work identically across local and remote Routes.
+
+### Networked Realms
+
+A Realm can be bound to a Transport Layer (TCP/WebSockets).
+
+**Syntax**: Configuration via Proclamation.
+
+```rhumb
+node := <$>;
+node$connect("tcp://192.168.1.5:8080");
+```
+
+**Behavior**:
+
+- **Signal (`node#msg`):** Serializes `msg` and sends it over the socket.
+- **Proclamation (`node$state`):** Syncs state to the remote node (CRDT-like consistency).
+- **Subscription (`node <> ...`):** deserializes incoming packets into local Tuples.
+
+### The Freezer (Serialization Engine)
+
+The VM employs a unified serialization engine called **The Freezer** to flatten
+the object graph into a binary format. It operates in two modes:
+
+1.  **Migration Mode (Network):**
+    - **Scope:** Serializes a specific Closure or Process.
+    - **Sanitization:** **Strict.** If the graph contains non-transferable local
+      resources (File Handles, Window Pointers), the freeze **fails** with an
+      error. This prevents "It works on my machine" bugs in distributed code.
+2.  **Snapshot Mode (Disk):**
+    - **Scope:** Serializes the entire VM Heap and Tuplespace.
+    - **Sanitization:** **Permissive.** Local resources are serialized as
+      **Rehydration Instructions** (e.g., "Open file X at offset Y"). On reload,
+      the VM attempts to restore them; if impossible (file missing), the handle
+      becomes `___` or an error.
+
+### The Dependency Check
+
+Before accepting a migrated process, the Remote Node validates the **Resolver
+Headers**.
+
+- **Check:** "Do I have `{!|math|1.2.0}`?"
+- **Result:**
+  - **Yes:** Accept and run.
+  - **No:** Reject (or optionally request the missing library blob).
+
+## Syntactic Symmetries
+
+The Concurrency primitives exhibit powerful symmetries that allow developers to
+choose between **Inline Logic** (Subscriptions) and **Reusable Logic**
+(Vassals).
+
+### The Monitor Symmetry (`<>` vs `{}`)
+
+Listening to a Realm via an empty subscription is identical to attaching a
+Selector directly to the Realm (Attachment Mode).
+
+- **Syntax A:** `realm <> [] -> { ... }`
+  - _Meaning:_ "Subscribe to `realm`. Filter nothing (`[]`). Execute block for every event."
+- **Syntax B:** `realm { ... }`
+  - _Meaning:_ "Attach monitor to `realm`. Trap all signals bubbling up."
+- **Equivalence:** `realm <> []` is equivalent to `realm` (as a Monitor Source).
+
+### The Filter Symmetry (Vassals vs Patterns)
+
+Applying a Vassal to a Realm is identical to Subscribing with a Pattern. Both
+act as filters on the event stream.
+
+- **Scenario:** We want to listen only for `#sig`.
+- **Approach A (Inline Pattern):**
+
+  ```rhumb
+  realm <> [#sig] -> { ... }
+  ```
+
+  - _Mechanism:_ The **Pattern** inside the subscription performs the filtering.
+
+- **Approach B (Applied Vassal):**
+
+  ```rhumb
+  v .= <{ .#sig }>   % Define Vassal (Allow #sig)
+  v(realm) { ... }   % Apply Vassal -> Attach Monitor
+  ```
+
+  - _Mechanism:_ The **Vassal** performs the filtering before the Monitor sees it.
+
+- **Conclusion:** **Submaps are ephemeral Vassals.** When you write `[#sig]`,
+  you are defining a temporary attenuation strategy for that specific
+  subscription.
+
+
+--- END OF FILE: tutorial-guides/concurrency.md ---
+
+
+--- START OF FILE: tutorial-guides/files-and-libraries.md ---
+
+---
+sidebar_position: 3
+---
+
+# Project Structure & Storage
+
+Rhumb adopts a unique nomenclature for its file artifacts to distinguish between executable scripts and library code.
+
+## Artifact Terminology
+
+| Term        | Concept                                                                                   | Standard Ext | Optional Ext |
+| :---------- | :---------------------------------------------------------------------------------------- | :----------- | :----------- |
+| **Letter**  | **Script / Executable**. A one-off action. Runs standalone.                               | `.rh`        | `.rhl`       |
+| **Book**    | **Module**. A single file containing library code. Accesses its Shelf directly.           | `.rh`        | `.rhb`       |
+| **Shelf**   | **Folder**. A directory containing Books and/or inner Shelves                             | N/A          | N/A          |
+| **Route**   | **Application**. A collection of Shelves/Books meant to be run by an end user.            | `.ri`        | N/A          |
+| **Library** | **Package**. A collection of Shelves/Books meant to be used by other Libraries or Routes. | `.ri`        | N/A          |
+| **Catalog** | **Metadata**. Defines Library properties.                                                 | `@.rhy`      | `@.rh.yaml`  |
+
+## Shelf Organization
+
+In Rhumb, a file's "package" is defined solely by its parent directory.
+
+- **No Headers:** There are no `package` or `namespace` declarations inside `.rh` files.
+- **Implicit Scope:** A Book can access any other Book within the same Shelf (Folder) implicitly.
+- **Identity:** While the folder structure defines _grouping_, the **Catalog** (`.rhy`) defines _identity_. The folder tells the compiler "these files are one unit," but the Catalog tells the compiler "this group of files is the `math` shelf."
+
+## Libraries & Catalogs
+
+External dependencies are defined via **Catalogs**.
+
+- **Format:** YAML files with the extension `.rhy` or `.rh.yaml` with the `@` character in the filename.
+- **Naming Convention:** `LibraryName@SubCatalog.rhy`
+  - Example: `networking@http.rhy`
+  - **Anonymous Project:** `___@config.rhy` (Project name defined inside the YAML).
+- **Role:** The Catalog is the **Authority** on:
+  - **Versioning:** Mapping a physical folder (e.g., `src/0.1.0`) to a semantic version.
+  - **Integrity:** Storing the **Anchors** (Checksums) for dependencies.
+  - **Aliasing:** Naming dependencies (e.g., mapping `math` to `🧮`).
+
+## Language Localization
+
+For Books managed by the IDE or build tool, the source code is decomposed into three file types to support Localization and Git workflows:
+
+1.  **Logic Node (`.__.rh`):** The Canonical AST
+    - **Format:** `filename.__.rh`
+    - **Content:** Rhumb source using **Raw IDs** (`$x9A2`, `$L01`) instead of human labels
+    - **Role:** This is the Source of Truth for the compiler. It ensures referential integrity across renames and languages.
+2.  **Translation Map (`.rhy`):** The Label Dictionary (YAML syntax)
+    - **Format:** `filename.rhy`
+    - **Content:** A YAML map of IDs to localized strings
+    ```yaml
+    $x9A:
+      en_US: velocity
+      fr_FR: vitesse
+    $d1B:
+      en_US: distance
+      fr_FR: distance
+    ```
+3.  **Localized Artifacts (`.<lang>.rh`):** Read-Only Views
+    - **Format:** `filename.en_US.rh`
+    - **Content:** Valid Rhumb source generated by the IDE using the Logic
+      Node + Translation Map.
+    - **Role:** Allows browsing the code in specific languages (e.g., on
+      GitHub/Gitlab) without needing the Rhumb IDE.
+
+## Dependency Resolution
+
+Dependencies are imported using the **Resolver Protocol**.
+
+- **Explicit Version:** `{ ! | math | 1.0.0 }`
+- **Latest/Default Version:** `{ ! | math | - }` (Use `-` to indicate no specific version)
+
+| Resolver     | Syntax | Use Case      | Example                           |
+| :----------- | :----- | :------------ | :-------------------------------- |
+| **Base**     | `!`    | Standard Libs | `{!\|🧮\|-}`                      |
+| **Local**    | `-`    | Internal Code | `{-\|src\utils\math \|-}`         |
+| **Resource** | `=`    | Static Assets | `{=\|assets/icons/logo.png \|-}`  |
+| **Custom**   | `git`  | External Libs | `{git\|https://github...\|0.1.0}` |
+| **Native**   | `_`    | Internal FFI  | `{_\|nat_math\|-}`                |
+
+**Path Resolution Rules:**
+
+1.  **Implicit (Sibling):** Books within the same Shelf (Folder) can access each
+    other directly by label. No import block is required.
+2.  **Local Resolver (`-`):** The Local Resolver `{-}` performs a **Two-Step Lookup**:
+    - **Step A (Logical Alias):** It first checks the active `catalog@.rhy` for a dependency key matching the provided label (e.g., `math`). If found, it resolves to the version or path defined in the catalog.
+    - **Step B (Physical Path):** If no alias is found, it treats the string as a **File System Path** relative to the **Project Root** (e.g., `src/libs/math`).
+
+**Version Syntax & Resolution:** The Resolver interprets the **Type** and
+**Format** of the literal provided in the version slot. Rhumb uses the `.-`
+(DotDash) syntax to explicitly signify wildcards.
+
+**Note on Suffixes:** Version literals may include prerelease (`-alpha`) and
+build (`+001`) suffixes. These are treated as **Strict Text Matches** by the
+resolver; wildcards cannot be used in conjunction with suffixes.
+
+| Literal        | Syntax      | Type    | Semantics                                                            | Target Match Example |
+| :------------- | :---------- | :------ | :------------------------------------------------------------------- | :------------------- |
+| **`1.2.3`**    | `X.Y.Z`     | Version | **Exact Pin**. Must match exactly.                                   | `/lib@1.2.3`         |
+| **`1.2.3-rc`** | `X.Y.Z-Pre` | Version | **Exact Pin with Pre-release**.                                      | `/lib@1.2.3-rc`      |
+| **`1.2.-`**    | `X.Y.-`     | Version | **Patch Wildcard**. Highest patch for 1.2.                           | `/lib@1.2.9`         |
+| **`1.-`**      | `X.-`       | Float   | **Minor Wildcard**. Highest minor/patch for 1.                       | `/lib@1.9.4`         |
+| **`-`**        | `Dash`      | Dash    | **Major Wildcard / Working Copy**. Prefers unversioned Shelves.      | `/lib`               |
+| **`1`**        | `X`         | Integer | **Implicit Major**. Same as `1.-` (SemVer `^1.0`).                   | `/lib@1.9.4`         |
+| **`stable`**   | `Label`     | Label   | **Variable**. Looks for a matching variable that contains a Version. |                      |
+
+**Circular Dependencies:** Rhumb supports circular references between Shelves for _declarations_ because of the multi-pass Hoister. However, circular _initialization logic_ (top-level code that depends on another file's top-level code executing first) will trigger a **Runtime Cycle Error**.
+
+### Custom Network Resolvers (`git` & `!`)
+
+Under the hood, both the **Remote (`git`)** and **Base (`!`)** resolvers are **Custom Resolvers** that use network protocols (Git over HTTP) to transmit libraries. They differ only in how they determine the **Target Repository** and the **Target Branch**.
+
+1.  **Git Resolver (`git`):**
+    - **Mechanism:** Connects to the **Provided URL** (e.g., a GitHub/GitLab repo).
+    - **Target:** Pulls the **HEAD Branch** of that repository.
+    - **Usage:** `{ git | https://github.com/user/repo | version }`
+
+2.  **Base Library Resolver (`!`):**
+    - **Mechanism:** Connects to a **Default URL** (The official Rhumb Library Registry).
+    - **Target:** Pulls the **Provided Branch/Tag** that matches the requested library (e.g., library "🧮").
+    - **Default URL:** `https://github.com/rhumb/libraries`
+    - **Override:** The source URL can be changed via project metadata (see below).
+
+### Initial Library State
+
+A resolved module is not just a bag of code; it must be explicitly granted
+capabilities to interact with the outside world through a [**Vassal**](./concurrency.md#vassals-facets--attenuation).
+
+```rhumb
+% { resolver | path | version }
+dlib := {- | dangerous_library | -}
+```
+
+When this statement executes, the runtime performs a two-stage security
+handshake:
+
+1.  **Integrity Check (The Anchor):** The Loader calculates the SHA-256 hash of
+    the downloaded artifact and compares it against the entry in the
+    `catalog.rhy`. If they mismatch, the VM halts with a `SupplyChainViolation`.
+2.  **Capability Grant (The Vassal):** By default, imported modules have **Zero
+    Ambient Authority**. They can perform pure logic (math, data transformation)
+    but cannot access the Network, Disk, or Environment unless explicitly piped
+    into a Vassal that grants those permissions.
+
+To grant permissions, provide the raw library as an argument to a Vassal (to
+define the vassal directly after the library import, you can use the **Pipe
+Operator (`||`)**).
+
+```rhumb
+vassal .= <{
+  #🚀(%( permissions... %))
+}>
+dlib := vassal({-|dangerous_library|-})
+
+% or using the pipe operator
+dlib := {-|dangerous_library|-} || <{
+  #🚀(%( permissions... %))
+}>
+```
+
+### Signal Pattern Ranges
+
+Capabilities are expressed as **Signal Patterns** on the system channels.
+
+**System Channels:**
+| Glyph | Channel | Purpose |
+| :--- | :--- | :--- |
+| **`#📡`** | **Network** | HTTP, Sockets, Fetch |
+| **`#💾`** | **Disk** | File System Read/Write |
+| **`#🚀`** | **Exec** | Subprocesses & Shell |
+| **`#⚙️`** | **Env** | Environment Variables |
+
+**The IO Range Syntax (`|`):**
+Capabilities are defined as **Ranges** representing the boundary between the module and the system.
+
+- **Format:** `Ingress | Egress`
+- **Ingress (Left):** What the module reads/accepts (File Reads, Port Listens).
+- **Egress (Right):** What the module writes/sends (File Writes, Outbound Connections).
+- **Deny (`___`):** Use the Empty value to block a side of the boundary.
+
+**Example: A Secure Import**
+
+```rhumb
+% Import a weather library.
+% We grant it Network access (to specific domains) but deny Disk and Env access.
+
+weather := {git|https://github.com/weather/api|1.0.0} || <{
+    % 📡 Network
+    % Ingress: Listen on port 8080 (Callback)
+    % Egress: Connect to api.weather.com
+    #📡( 8080 | "api.weather.com" )
+
+    % ⚙️ Environment
+    % Ingress: Read the API key
+    % Egress: Blocked (Cannot change Env)
+    #⚙️( "WEATHER_API_KEY" | ___ )
+
+    % Implicitly Deny: #💾 (Disk) and #🚀 (Exec)
+}>
+```
+
+If the `weather` library attempts to read `/etc/passwd` (emitting
+`#💾("/etc/passwd" | ___)`), the Vassal will fail to match the pattern, and the
+signal will dissolve into `___` (Empty), effectively sandboxing the code.
+
+## Catalogs
+
+Catalog files serve a dual purpose: they are both the **Dependency Manifest**
+(Human Intent) and the **Integrity Anchor** (Machine Reality). Rhumb
+differentiates between **Code Dependencies** (YAML Strings) and **Resource
+Dependencies** (YAML Strings inside Arrays). A catalog file must have the same name as the
+folder but with `@` followed by any additional label (for breaking a catalog
+into multiple files).
+
+### The Anchor Protocol
+
+Every dependency entry in the catalog must eventually include an **anchor** (cryptographic
+checksum). This "freezes" the dependency to a specific sequence of bytes,
+preventing "Left-Pad" incidents or malicious updates.
+
+**Catalog Format w/ Anchors:**
+
+```yaml title="project@.rhy"
+-:
+  # === Code Dependencies ===
+  # Format: "alias: [version] [anchor]"
+
+  # 1. Secured Dependency (Production Ready)
+  # The loader verifies this SHA-256 before compiling.
+  physics: 1.2.0 sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+  # 2. Unsecured Dependency (Development)
+  # The "___" indicates the anchor is missing.
+  # The wildcard in the version indicates that this is a new not-yet pinned dependency.
+  # the contract hear should be a match or a more restrictive contract than the one in the book's library resolver.
+  # The IDE will calculate the actual version and the anchor this on the next successful run and update the file.
+  graphics: 1.0.- ___
+
+  # 3. Base Library (Verified)
+  # Resolvers '!' treat the base library like any other dependency.
+  # They must be anchored to ensure the runtime environment hasn't been tampered with.
+  std_math: 🧮@1.0.0! sha256:8f4b2...
+
+  # 4. Local Resolver (Implicit Trust)
+  # Only the Local Resolver '-' is exempt from anchoring, as it represents the
+  # mutable source code of the project itself.
+  local_utils: utils/-
+
+  # === Resource Dependencies ===
+  # Format: "filename: [anchor]"
+  assets:
+    - -: # the initial dash indicates this is a bracketed sub-catalog
+      logo.png: sha256:a1b2...
+      data.json: ___
+```
+
+1.  **Mandatory Tip (`-`):** Every catalog **must** contain a Tip version key
+    (`-`). This represents the "Working Copy" or "Dev" state of the project. It
+    cannot be null; it must contain either a dependency map or a pointer.
+2.  **Immutability:** Numbered versions (e.g., `0.1.0`) are immutable. Once
+    published/tagged, their dependency list should not change. The Tip (`-`) is
+    mutable.
+
+### Integrity Enforcement & The `-sha256` Flag
+
+Rhumb enforces strict supply chain security at runtime. When `rhi` starts
+(either in file mode or REPL mode), it scans the local directory for a catalog
+and recursively validates that all dependencies and resources match their
+defined anchors.
+
+**The CLI Flag: `-sha256`** This flag controls the **Auto-Anchor** behavior. It
+does _not_ change the execution mode (File vs. REPL); it only determines whether
+the runtime is allowed to update the catalog file.
+
+| Command                   | Behavior                                                                                                                                                                                       |
+| :------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`rhi -sha256 file.rh`** | 1. Scans catalog at file's location. <br/> 2. Replaces any `___` anchors with calculated checksums. <br/> 3. Validates existing anchors (Panics on mismatch). <br/> 4. **Executes `file.rh`.** |
+| **`rhi file.rh`**         | 1. Scans catalog at file's location. <br/> 2. **Panics** if any `___` anchors are found. <br/> 3. Validates existing anchors (Panics on mismatch). <br/> 4. Executes `file.rh`.                |
+| **`rhi -sha256`**         | 1. Scans catalog at current location. <br/> 2. Replaces `___` with checksums. <br/> 3. Validates existing anchors. <br/> 4. **Starts REPL.**                                                   |
+| **`rhi`**                 | 1. Scans catalog at current location. <br/> 2. **Panics** if `___` found. <br/> 3. Validates anchors. <br/> 4. Starts REPL.                                                                    |
+
+**Panic Conditions:**
+The runtime will halt immediately with a specific error message if integrity checks fail:
+
+- **Empty Anchor (without `-sha256`):**
+  > `anchor is not a match for dependency 'libs/math' (line 12, col 4): expected '___' actual 'sha256:e3b0c4...'`
+- **Mismatching Anchor (always):**
+  > `anchor is not a match for dependency 'libs/math' (line 12, col 4): expected 'sha256:8f4a...' actual 'sha256:e3b0c4...'`
+
+### Catalog Metadata (User-Defined in `.rhy`)
+
+A catalog file can contain one non-version key which is the project's name (best
+practice is that this matches the folder's name). This non-version key hold's an
+object with a few metadata fields:
+
+| Emoji Key | Name         | Type   | Description                                                                                                                                                  |
+| :-------- | :----------- | :----- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`👤`**  | **Author**   | String | The maintainer or organization.                                                                                                                              |
+| **`🪪`**  | **License**  | String | SPDX license identifier.                                                                                                                                     |
+| **`📦`**  | **Repo**     | URL    | Source code repository.                                                                                                                                      |
+| **`🏷️`**  | **Tags**     | List   | Keywords for indexing/search.                                                                                                                                |
+| **`📝`**  | **Desc**     | String | Multi-line description.                                                                                                                                      |
+| **`📂`**  | **Root**     | Path   | **Source Root.** If set (e.g. `src`), all shelf lookups happen relative to this folder.                                                                      |
+| **`❗`**  | **Base URL** | URL    | **Base Library Override.** Changes the default registry for `!` imports from `github.com/rhumb-lang/libraries` to a custom Git URL.                          |
+| **`⚙️`**  | **Engines**  | Map    | **Runtime Requirements.** Specifies the minimum version of the runtimes (such as `rhi`) required to use this library. Used to ensure Native Functions exist. |
+
+**Engines Example:**
+
+```yaml
+my_project:
+  ⚙️:
+    rhi: "0.1.0" # Indicates that my_project works with the `rhi` runtime at version 0.1.0
+```
+
+### Example Library/Route Folder
+
+Since Rhumb is managed by an IDE, the **Working Copy** is decoupled from the
+**Archived Versions**.
+
+Instead of editing files directly inside of the numbered version folder (which
+changes name), you perform all work in the **"top shelf" (`-`)** (which never changes name). When you "bump" a version,
+the IDE snapshots that folder into a numbered archive. These folders sit alongside
+the shelves or other resource folders of the project.
+
+```console
+$ tree . # inside of a Rhumb project
+/project_name
+  ├── project_name@.rhy
+  └── /src
+       ├── /-                 <-- Root Project Tip
+       │    └── +main.rh
+       ├── /0.1.0             <-- Root Project Version
+       │    └── +main.rh
+       ├── /core_mechanics
+       │    ├── /-
+       │    │    ├── player.rh
+       │    │    └── movement.rh
+       │    ├── /0.3.2
+       │    │    ├── player.rh
+       │    │    └── movement.rh
+       │    └── core_mechanics@.rhy
+       ├── /physics
+       │    ├── /-
+       │    │    ├── particle.rh
+       │    │    └── ball.rh
+       │    └── /0.1.0
+       │         ├── particle.rh
+       │         └── ball.rh
+       ├── /art_files
+       │    ├── /-
+       │    │    ├── hero.png
+       │    │    ├── map.json
+       │    │    └── enemy.png
+       │    ├── /0.2.0
+       │    │    ├── hero.png
+       │    │    └── map.json
+       │    └── /0.1.0
+       │         ├── hero.png
+       │         └── map.json
+       └── /integration_checks
+            ├── /-
+            │    └── +integration_checks.rh
+            ├── /0.5.0
+            │    └── +integration_checks.rh
+            ├── /0.4.0
+            │    └── +integration_checks.rh
+            ├── /0.3.0
+            │    └── +integration_checks.rh
+            ├── /0.2.0
+            │    └── +integration_checks.rh
+            └── /0.1.0
+                 └── +integration_checks.rh
+```
+
+### Runtime Metadata (Resolver-Generated)
+
+This is what the `LibraryLoader` generates and stores in memory (or the `.ri` snapshot) after scanning the disk.
+
+| Field                 | Type   | Source      | Purpose                                                                                                    |
+| :-------------------- | :----- | :---------- | :--------------------------------------------------------------------------------------------------------- |
+| **`ResolvedVersion`** | String | Calculated  | The concrete SemVer (e.g., `1.2.3`).                                                                       |
+| **`PhysicalPath`**    | Path   | Calculated  | Absolute path to the shelf directory (e.g., `/abs/project/src/physics/0.1.0`).                             |
+| **`EntryPoint`**      | Path   | **Scanned** | The absolute path to the `+filename.rh` file found in that directory. `null` if it's a library-only shelf. |
+| **`Dependencies`**    | List   | Catalog     | Pre-calculated list of dependencies for this specific version.                                             |
+| **`Integrity`**       | Hash   | Calculated  | SHA-256 of the shelf contents (for security/caching).                                                      |
+
+### Dependency Aliasing
+
+The keys in the `Dependencies` block act as **Logical Aliases**. This allows you
+to rename libraries or move them without changing your source code imports.
+
+**Catalog Example:**
+
+```yaml title="project@.rhy"
+-:
+  # logical_name : [ original_name @ ] specific_version_or_path
+  physics_engine: libs/physics ___
+  game_math: math@0.1.0 ___ # to make an alias, prefix the version name and an "@" before the version
+  standard_math: 🧮@1.0.0! ___ # IDE will calculate sha256 of the local stdlib on disk
+```
+
+**Source Example:**
+
+```rhumb
+% main.rh
+% Import using the alias, not the path
+phys := {-|physics_engine|-}
+math := [
+ base .. {-|standard_math|-}
+ game .. {-|game_math|-}
+]
+n := math\game\random()
+```
+
+### The Pointer Protocol (`<-`)
+
+To reduce duplication, a version can inherit dependencies from another version using the **Pointer Key (`<-`)**.
+
+**Syntax:**
+
+```yaml
+-:
+  <-: 0.1.0 # Base: Inherit everything from 0.1.0
+  dev_tools: 2.0.0 # Extension: Add a new tool for development
+```
+
+**Rules of Inheritance:**
+
+1.  **Extension (Allowed):** You can include the pointer `<-` alongside **New Keys**. The runtime merges the pointed version's dependencies with the new keys.
+2.  **Shadowing (Forbidden):** You **cannot** override a dependency that already exists in the pointed version. If you need to change a version of an inherited library, the pointer is considered **Invalid**.
+    - **Mechanism:** The IDE or build tool will "Hoist" (flatten) the dependencies: it removes the `<-` pointer and copies all keys from the target version up to the current version, effectively decoupling them. This ensures explicit visibility of all dependencies when they diverge.
+
+## Resource Shelves & Slips
+
+Static assets (images, JSON configuration, database files) are imported using the **Resource Resolver `{=}`**. Unlike code imports which load a "Shelf," resource imports load a specific **File**.
+
+**Syntax:** `{ = | path/to/shelf/filename.ext | version }`
+
+### The Bracketed Protocol
+
+Resource Shelves are denoted by surrounding the version or sub-catalog in a YAML Array (`[]`).
+
+1.  **Catalog Definition:** `name: [version]`
+2.  **Disk Location:** The loader automatically looks for a folder named `[name]`.
+3.  **Versioning:**
+    _ **Versioned:** `[1.0.0]` → `src/[name]/1.0.0/`
+    _ **Tip:** `[-]` → `src/[name]/-/`
+    _ **Inline:** `[{...}]` → `src/[name]/-/` (The version is implicitly Tip-based).
+    _ **Block:**
+    ```yaml
+    -:
+      art_files: # yaml has a dash block syntax that means []
+        - -:
+            image.png: sha256:d4c3...
+          0.1.0:
+            image.png: sha256:fa3f...
+      # equivalent inline
+      <!-- prettier-ignore -->
+      art_files2: [{-: {image.png: sha256:d4c3...}, 0.1.0: {image.png: sha256:fa3f...}}]
+    ```
+
+**Example**:
+
+```yaml title="art_files@.rhy"
+-:
+  <-: 0.1.0 # uses dependency graph for 0.1.0
+  # if any files change from 0.1.0, the pointer can no longer be used
+  # if only new files are added, the pointer can still be used alongside the new key-value resource pairs
+0.1.0:
+  # --- Auto-Discovery ---
+  # Inferred from extension (.json -> Map, .png -> Binary)
+  config.json: sha256:a1b2c3...
+  hero.png: ___ # system will add checksum on next run
+
+  # --- Explicit Options (Key Suffix) ---
+  # Force specific encoding or MIME type via semicolon
+  legacy.data;iso-8859-1: sha256:e3b0c44...
+  raw_config.json;text/plain: sha256:c1c149af... # Load as Text, do not parse
+
+  # --- Integrity & Security ---
+  # Checksums are required, the loader validates the bytes before returning.
+  secure.db: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+```
+
+**Constraint:** Resource filenames defined in the catalog must not contain
+semi-colons (;). If a file on disk has one, it must be renamed to be compatible
+with the Symbolic Protocol.
+
+**Generation:** Setting the value to `___` acts as a request for the **IDE or
+Build Tool** to calculate the SHA-256 hash and update the catalog file. The
+Runtime (VM) will throw an error if it encounters `___` in a production/frozen
+environment, enforcing integrity.
+
+### Runtime Behavior Matrix
+
+The Loader determines the return type based on the MIME type, which is either
+inferred from the file extension or explicitly overridden in the catalog.
+
+| File Extension            | Default MIME               | Runtime Value | Description                             |
+| :------------------------ | :------------------------- | :------------ | :-------------------------------------- |
+| **`.json`**               | `application/json`         | **Map**       | Automatically parsed into a Rhumb Map.  |
+| **`.txt`, `.rtf`, `.md`** | `text/plain`               | **Text**      | Loaded as a UTF-8 string.               |
+| **`.png`, `.jpg`, etc.**  | `image/*`                  | **Slip**      | Returns a lightweight slip (see below). |
+| **`.db`, `.sqlite`**      | `application/x-sqlite3`    | **Slip**      | Returns a slip for DB drivers.          |
+| **(Unknown)**             | `application/octet-stream` | **Slip**      | Raw binary slip.                        |
+
+### Options & Overrides
+
+You can modify the loading behavior by setting various options in the catalog entry for a resource.
+
+- **`utf-8` / `iso-8859-1`**: Forces text decoding using the specified charset.
+- **`base64`**: Loads binary data but returns it as a Base64-encoded **Text** string.
+- **`text/plain`**: Forces treating a file (like `.json`) as raw text instead of parsing it.
+- **`application/json`**: Forces parsing a file (like `.config`) as JSON.
+
+Options can be defined in two places:
+
+1.  **In the Key (Suffix):** `filename;option: anchor`
+    - _Best for:_ **Loading Instructions** (e.g., `base64`). This allows the
+      IDE to auto-generate the anchor (`___` -\> `sha256:...`) without
+      overwriting your manual options.
+2.  **In the Value (Prefix):** `filename: option anchor`
+    - _Best for:_ **File Metadata** (e.g., `text/plain`). Cleaner to read but requires care when auto-generating anchors to preserve the existing text.
+
+**Example:**
+
+```yaml title="[logo_folder]@.rhy"
+-:
+  # Key-based (Safe for Auto-Anchor)
+  logo.png;base64: ___
+
+  # Value-based (Clean Readability)
+  config.json: text/plain sha256:e3b0c442...
+
+  # Mixed (Valid)
+  data.dat;base64: application/octet-stream sha256:a1b2...
+```
+
+- **Tooling (rhide):** Your future IDE or build tool logic for replacing `___`
+  with `sha256:...` becomes slightly more complex.
+  - _Old Logic:_ `Value = newHash`
+  - _New Logic:_ `Value = oldOptions + " " + newHash` (Must preserve existing
+    prefix tokens).
+- **Conflict Resolution:** If a user specifies `text/plain` in the key AND
+  `application/json` in the value, the loop in `parseResourceMeta` will let the
+  **last one win** (based on iteration order).
+
+### Slips (Resource Handles)
+
+For binary assets (images, audio) or large files (databases), loading the entire
+content into the VM stack is inefficient. In these cases, the Resolver returns a
+**Slip** which is a resource handle.
+
+- **Type:** `Slip`
+- **Fields:**
+  - `\path`: The absolute path to the verified file on disk.
+  - `\mime`: The resolved MIME type.
+- **Usage:** Base library functions accept slips directly.
+
+  ```rhumb
+  db_res := {=|database/users.db|0.1.0}  % Returns Slip
+  conn := sql\open(db_res)      % Opens the path defined in the slip
+  ```
+
+**Semantics:** A Slip represents **Verified Permission** to access a specific
+asset. It does not load the asset into memory.
+
+**Streaming:** Base library functions (like `io\open(slip)`) use the Slip to
+open a file descriptor, allowing for random access and streaming of large assets
+(video/databases) without memory pressure.
+
+**Security:** Slips are **Opaque Handles**. They cannot be constructed manually
+via Map literals. This ensures that all Slips passed to base library
+functions have originated from the verified Resolver logic and point to
+sandboxed, checksummed assets.
+
+## The Entry Point (`+`)
+
+The entry point of any Shelf (local library) is strictly defined by the file
+naming convention.
+
+- **Syntax:** `+filename.rh`
+- **Constraint:** A Shelf version may contain **only one** file with the `+` prefix.
+- **Behavior:**
+  - **Run:** When `rhi ./shelf` is called, the interpreter locates the `+`
+    file and begins execution there.
+  - **Import:** When a module is imported by another, the `+` file is
+    treated just like any other source file in the bundle (its code is
+    loaded), but it acts as the "Leader" of the loading order.
+- **Library Mode:** A Shelf with no `+` file is a **Library**. It cannot be
+  executed directly.
+
+**Example:**
+
+```text
+/my_game
+  ├── +foo.rh       <-- The "Main" script.
+  ├── logic.rh
+  └── _helpers.rh    <-- A standard source file.
+```
+
+## Shelf Scope (Internal Visibility)
+
+Rhumb uses a **"Flattened Directory Scope."**
+
+- **The Rule:** All files within a single Shelf version (e.g., inside `/0.1.0/`) share the same scope.
+- **Mechanism:** You do not need to import sibling files. If `logic.rh` defines `CalculateScore`, `+foo.rh` can call it instantly.
+- **Privacy Exception:** This shared scope includes **Private** (`_`) members. Privacy is only enforced across Shelf boundaries, not within the Shelf itself.
+
+---
+
+## External Visibility (Exports)
+
+Visibility is controlled entirely by the **Label Naming Convention**.
+
+### Public by Default
+
+Any top-level label (function, variable, constant, key) that **does not** start with an underscore is automatically exported.
+
+- **Definition:** `calculate := [] -> ( ... )`
+- **Access:** Visible to any library or route that imports this Shelf.
+
+### Private by Prefix (`_`)
+
+Any top-level label starting with an underscore `_` is strictly internal.
+
+- **Definition:** `_validate .= [] -> ( ... )`
+- **Access:**
+  - Visible to sibling files (e.g., `logic.rh` can call `_validate` defined in `helpers.rh`).
+  - **Invisible** to importers (e.g., if `Game` imports `Physics`, it cannot see `Physics\_validate`).
+
+### Visual Example
+
+**File: `/physics/collision.rh`**
+
+```rhumb
+% Public: The world can see this
+check-overlap .= [a;, b] (
+    _boxes_touch(a; b) => (
+        ...
+    )
+)
+
+% Private: Only the 'physics' shelf can see this
+_boxes_touch .= [a; b] -. (
+    ...
+)
+```
+
+**File: `/game/+main.rh`**
+
+```rhumb
+phys := {-|physics|1.-}
+
+% Valid
+phys\CheckOverlap(p1; p2)
+
+% Error: '_boxes_touch' is not defined in library 'physics'
+phys\_boxes_touch(p1, p2)
+```
+
+## Full Catalog Example
+
+```yaml title="./my_project@.rhy"
+# one non-version key is allowed for project/shelf metadata
+my_project:
+    👤: Jake Russo # author
+    🪪: MIT # license
+    📦: https://github.com/user/repo
+    🏷️: # keywords
+        - programming
+        - cryptography
+        - server
+    📝: >
+        This is a description of the project and it can span
+        multiple lines using thr yaml ">" operator
+    📂: src # if the libraries and desktop books are in non-root folder
+    ❗: "https://git.internal.corp/rhumb/custom-std-lib" # Override the base library source
+
+# all remaining values in the catalog are versions of the project
+-:
+    <-: 0.1.0 # Inherit base dependencies from 0.1.0
+    debug_tools: 1.0.0 # EXTENSION: Allowed. Adds 'debug_tools' to the set.
+    # physics: 1.0.0   # SHADOWING: Forbidden. If you uncomment this, the IDE will
+                       # remove the '<-' pointer and copy all 0.1.0 deps here.
+0.1.0:
+    core_mechanics: <- # this "<-" symbol as a value means that core_mechanics shelf contains its own catalog
+    win_conditions: <-
+    physics: # objects with version keys means that the shelf's catalog is included here
+        0.1.0:
+            # the triple underscore ____ means that the user has not yet added an achor for these shelves
+            core_mechanics: 0.3.2 ___ # this means that physics@0.1.0 depends on core_mechanics@0.3.2
+            math: 0.1.0! ___ # the ! means base library (all standard libraries are versioned and anchored)
+
+    # The brackets indicate this is a Resource Shelf.
+    art_files: [0.1.0] ___ # Maps to: /src/[art_files]/0.1.0
+
+    # if you are using the flag for allowing wildcards, you could reference the tip version directly
+    sounds: [-] # Maps to: /src/[sounds]/-
+    # if you want to specify a resource sub-catalog across multiple lines, use dash - leading line to indicate []
+    icons: # Maps to: /src/[icons]
+    - -: # the leading dash tells yaml that this is an array (which is how we identify resource shelves)
+        logo.png: sha256:a1b2...
+        favicon.ico: sha256:c12f8... # multiple preceding YAML dashes are not required
+        spinner.gif: ___
+
+    # false means that this is a non-resource folder that should be excluded from any distribution
+    integration_checks: false # but it could still have its own catalog (like for testing routes)
+---
+# ./core_mechanics/core_mechanics@.rhy
+-: null # since none of the versions contain dependencies, no pointer is needed
+0.4.1: ~ # in YAML ~ is equivalent to null
+0.3.2: null # null means that this is a rhumb folder but there's no dependencies and no inner shelves
+---
+# ./win_conditions/win_conditions@.rhy
+-: # we're using the new core_mechanics version in this top shelf
+    core_mechanics: 0.4.1
+    physics: 0.1.0
+0.2.1:
+    core_mechanics: 0.3.2
+    physics: 0.1.0
+0.2.0:
+    core_mechanics: 0.3.2
+    physics: 0.1.0
+---
+# ./integration_checks/integration_checks@.rhy
+# even though this shelf isn't part of the main library/route, it can still have a catalog
+-:
+  <-: 0.5.0
+0.5.0:
+  <-: 0.4.0 # if you are adding only, you can keep the pointer
+  win_conditions: 0.2.1
+0.4.0:
+  core_mechanics: 0.4.1
+  physics: 0.1.0
+0.3.0:
+  core_mechanics: 0.3.2
+  physics: 0.1.0
+0.2.0:
+  <-: 0.1.0
+0.1.0:
+  physics: 0.1.0
+```
+
+
+--- END OF FILE: tutorial-guides/files-and-libraries.md ---
+
+
 --- START OF FILE: tutorial-guides/maps-and-prototypes.md ---
 
 ---
@@ -288,35 +1406,37 @@ Rhumb follows a prototype-based object-oriented programming model, similar to th
 
 ## Maps as Objects
 
-A Map is a collection of **fields** (key-value pairs) and **positional elements** (list items). Maps serve as both data structures and objects.
+A Map is a collection of **fields** (key-value pairs). Maps serve what other languages would call objects.
 
 ```rhumb
-% A simple map acting as an object
-point .= [
+point.1 .= [
     x :: 10
     y :: 20
-    
+
     % A method using the base operator '!' to access self
-    print .. [] !> console\log("Point: $(!\x), $(!\y)")
+    distance .. [other] !> 2 ^/ ( !\x - other\x ) + ( !\y - other\y )
 ]
 
-point\print % Output: Point: 10, 20
+point.2 .= [x::10; y::20]
+
+point.1\distance(point.2) //?= 2
 ```
 
 ## Shorthand Syntax
 
 Inside a map literal, the `.` and `:` prefix operators serve as shorthand for assigning variables to fields of the same name.
 
-*   **Immutable (`.`)**: `[.foo]` is equivalent to `[foo..foo]`. It assigns the variable `foo` to the field `foo` immutably.
-*   **Mutable (`:`)**: `[:foo]` is equivalent to `[foo::foo]`. It assigns the variable `foo` to the field `foo` mutably.
+- **Immutable (`.`)**: `[.foo]` is equivalent to `[foo..foo]`. It assigns the variable `foo` to the field `foo` immutably.
+- **Mutable (`:`)**: `[:foo]` is equivalent to `[foo::foo]`. It assigns the variable `foo` to the field `foo` mutably.
 
 This shorthand works for subfields as well. For example, `[.@bar]` is equivalent to `[@bar..bar]`.
 
 :::info Context Matters
 Outside of a map literal, these prefix operators have different meanings:
-*   **`.`** freezes a value (Make Immutable).
-*   **`:`** creates a copy of a value (Clone).
-:::
+
+- **`.`** freezes a value (Make Immutable).
+- **`:`** creates a copy of a value (Clone).
+  :::
 
 ## Slots and Lookup
 
@@ -333,22 +1453,24 @@ Subfields are special fields in a map that act as parents or prototypes. If a sl
 % The prototype
 vehicle .= [
     type :: 'Generic Vehicle'
-    describe .. [] !> console\log("This is a $(!\type)")
+    describe .. [] -> "This is a $(!\type)"
 ]
 
 % The child map inheriting from vehicle
 car .= [
     % .@vehicle syntax adds 'vehicle' as a subfield/prototype
     .@vehicle
-    
+    @vehicle .. vehicle % Equivalent to .@vehicle
+
     % Overriding a field
     type :: 'Car'
 ]
 
-car\describe % Output: This is a Car
+car\describe %= "This is a Car
 ```
 
 In this example:
+
 1. `car\describe` is called.
 2. Rhumb looks for `describe` in `car`. It's not found.
 3. Rhumb checks the subfield `vehicle`. `describe` is found there.
@@ -356,21 +1478,41 @@ In this example:
 
 ## The Base (`!`)
 
-When a function is defined with the `!>` operator (Bound Function), it acts as a method. Inside the function, the `!` operator gives you access to the **base** map (the receiver of the message). This is equivalent to `self` or `this` in other languages.
+When a function is defined with the `->` operator (Unbound Function), it acts as a method. Inside the function, the `!` operator gives you access to the **base** map (the receiver of the message) where the function is _called_. This is equivalent to `self` or `this` in other languages.
 
 ```rhumb
 counter .= [
     count :: 0
-    increment .. [] !> !\count := !\count ++ 1
+    increment .. [] -> !\count := !\count ++ 1
 ]
 
 counter\increment
 console\log(counter\count) % 1
 ```
 
+When a function is defined with the `!>` operator, it is a bound function and the base map is bound to where it was _defined_. The base map is effectively a part of the function definition, not passed in when the function is invoked.
+
+````rhumb
+counter .= [
+    count :: 0
+    increment :: [] -> !\count := !\count ++ 1
+]
+
+otherCounter .= [
+    shadowCount :: 0
+    increment .. [] !> ( !\shadowCount := !\shadowCount ++ 1)
+]
+
+counter\increment := otherCounter\increment
+
+counter\increment % Because increment was bound to otherCounter, it uses otherCounter's base
+counter\count %= 0
+otherCounter\shadowCount %= 1
+```
+
 ## Implicit Base Return
 
-If a subroutine accesses the base (`!`), it will automatically return the base upon completion, unless a signal (`#`) is explicitly sent.
+If a subroutine accesses the base (`!`), it will automatically return the base upon completion, unless a bare signal (`#`) is explicitly sent.
 
 ```rhumb
 % '!' is accessed, so it is returned implicitly
@@ -384,7 +1526,7 @@ set-b .= [val] -> (
   !\b := val
   #(val) % Return 'val' instead of '!'
 )
-```
+````
 
 ## Multiple Inheritance (Traits)
 
@@ -408,28 +1550,29 @@ user .= [
     name :: 'Alice'
 ]
 
-console\log(user\get-name) % Alice
-console\log(user\get-id)   % 12345
+user\get-name %= 'Alice'
+user\get-id   %= '12345'
 ```
 
 ## Accessing Subfields Directly
 
 Sometimes you want to bypass the standard lookup or access a specific prototype directly (like `super` calls).
 
-*   **`@` Operator**: Access a specific named subfield.
-    ```rhumb
-    child@parent\some-method
-    ```
+- **`@` Operator**: Access a specific named subfield.
 
-*   **`[@]` Operator**: Access all subfields as a single map.
-    ```rhumb
-    child[@]\some-method
-    ```
+  ```rhumb
+  child@parent\some-method
+  ```
+
+- **`[@]` Operator**: Access all subfields as a single map.
+  ```rhumb
+  child[@]\some-method
+  ```
 
 ## Methods vs Functions
 
-*   **`->` (Function)**: A standard function. Does not bind `!`. Useful for pure logic or callbacks where context doesn't matter.
-*   **`!>` (Bound Function/Method)**: Binds `!` to the object it was called on. Essential for object behavior.
+- **`->` (Function)**: A standard function. Does not bind `!` until it is called, and then it is bound to the object it was called on. Useful for inherited methods.
+- **`!>` (Bound Function/Method)**: Binds `!` to the object it was defined in. Essential for object behavior.
 
 ## Dynamic Dispatch
 
@@ -439,10 +1582,10 @@ Because maps are dynamic, you can add or change behavior at runtime.
 robot .= [ .@vehicle ]
 robot\type := 'Robot'
 
-% Add a new method dynamically
-robot\say-hello := [] !> console\log("Beep boop")
+% Add a new method dynamically, binding it to robot
+robot\say-hello := [] !> "Beep boop"
 
-robot\say-hello
+robot\say-hello %= "Beep boop"
 ```
 
 ## Manual Binding (`!!`)
@@ -453,7 +1596,7 @@ You can manually bind a function to a specific object using the `!!` operator. T
 identify .= [] -> !\name\upper-case
 speak .= [] -> (
   greeting .= "Hello, I'm $identify"
-  console\log(greeting)
+  #STDOUT(greeting)
 )
 
 me .= [ name .. 'Jake' ]
@@ -468,13 +1611,52 @@ you .= [ name .. 'Reader' ]
 
 ## Summary
 
-*   **Maps** are the sole object type.
-*   **Fields** hold state or behavior.
-*   **Subfields (`@`)** allow delegation (inheritance).
-*   **`!`** accesses the current object (self).
-*   **`!>`** defines methods that bind `!`.
+- **Maps** are the sole object type.
+- **Fields** hold state or behavior.
+- **Subfields (`@`)** allow delegation (inheritance).
+- **`!`** accesses the current object (self).
+- **`->`** defines functions that do not bind `!`; instead `!` is set when the function is called.
+- **`!>`** defines bound functions that bind `!` to where the function was defined.
+
 
 --- END OF FILE: tutorial-guides/maps-and-prototypes.md ---
+
+
+--- START OF FILE: tutorial-syntax/comments.md ---
+
+---
+sidebar_position: 0
+---
+
+# Comments
+
+Rhumb uses the percent sign (`%`) for comments and meta-annotations.
+
+| Symbol      | Name          | Syntax                            | Semantics                                                                                                                                                                                                                                                                                                                                   |
+| :---------- | :------------ | :-------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **`%`**     | Line Comment  | `% text`                          | Ignored by Parser. Continues to end of line.                                                                                                                                                                                                                                                                                                |
+| **`%( %)`** | Block Comment | `%( text %)`                      | Ignored by Parser. Can be nested.                                                                                                                                                                                                                                                                                                           |
+| **`%=`**    | Assertion     | `x %= str [% optional test name]` | **Meta-Operator.** Ignored by Runtime. In Test Mode, asserts that the **String Representation** of the expression matches the **Raw Text** provided on the right. No parsing or evaluation is performed on the right-hand side. Optionally has a test name when the assertion is separated from the end of line by another % comment symbol |
+| **`%?`**    | Inspection    | `expr %?`                         | **Meta-Operator.** Ignored by Runtime. In Test Mode, it acts as the **"Bless" / "What is this?"** operator. It triggers an inspection log to stdout, allowing the user to copy the output and "bless" a test by pasting it into a `%=` assertion.                                                                                           |
+
+# Examples
+
+```rhumb
+x := 1 + 1 % this is a line comment
+
+%( this is a block
+    comment that
+    spans multiple
+    lines %)
+
+x %= 2 % this is a successful assertion
+x %= 1 % this is a failed assertion
+
+x %? % this will print an inspection log to stdout
+```
+
+
+--- END OF FILE: tutorial-syntax/comments.md ---
 
 
 --- START OF FILE: tutorial-syntax/dates.md ---
@@ -498,8 +1680,8 @@ mship-level := donation +/ 100
 renewal-date := 4/1/$mship-level
 ```
 
-These date values work with most of the usual mathematical and logical operators. They also offer a set of bound functions that make
-using and consuming them feature-complete.
+These date values work with most of the usual mathematical and logical operators. They also offer a set of bound functions that make using and consuming them feature-complete.
+
 
 --- END OF FILE: tutorial-syntax/dates.md ---
 
@@ -543,7 +1725,7 @@ sidebar_position: 1
 
 # Labels
 
-Labels are anything that is named. All named things in Rhumb are elements provided by the programmer or through libraries. Rhumb, the language, only has a two words that are reserved from being labels (but they are reserved across all human languages):
+Labels are anything that is named. **All** named things in Rhumb are elements provided by the programmer or through libraries. Rhumb, the language, only has **two** words that are reserved from being labels (but they are reserved across all human languages):
 
 - `yes`; `oui`; `ja`; `da`; `nai`; `vâng`
 - `no`; `non`; `nein`; `ne`; `ochi`; `không`
@@ -555,7 +1737,7 @@ Only one set will be active in a given project at the source level. IDE plugins 
 Labels can be any value that starts with a unicode letter codepoint and can be followed by any number of unicode letter/number codepoints intermixed with dashes, dots, and underscores.
 
 ```rhumb
-label 
+label
 label-with-dash
 label_with_underscore
 label.with.period
@@ -582,14 +1764,31 @@ You might think that `count` and `test` are sub-elements of a `can-run` object b
 
 :::
 
-
 ## Label Semantics
 
-As indicated in the warning above, each label represents a value in memory. You might think that labels are "variables" as they are called in some languages. You would be right, although in Rhumb, labels can be "variables" **and** "values". The distinction between a mutable label and an immutable one is decided at assignment (and mutable labels can become immutable this way as well). More on the topic of assignment later.
+As indicated in the warning above, each label represents a value or object in memory. Labels are "variables" as they are called in some languages. Although in Rhumb, labels are really just fields of the local scope map. The distinction between a mutable label and an immutable one is decided at assignment, there is no special declaration keyword like `let` or `const`. More on the topic of assignment later.
 
 ## Label Search Algorithm
 
-Labels exist within an **environment** and each new line of the program extends the environment in a time sequence. Each new addition to the environment is only accessible by code succeeding the assignment expression. However, time-series aside, if the current environment is exhausted, then the VM will traverse up to a lexically "outer" scope where it will again perform search up to the current line just outside the inner scope being exited. This continues up-and-outward until all environments have been exhausted at which time the VM will error out.
+Labels exist within a **context** and each new line of the program extends the context's list of locals in time. Each new addition to the context is only accessible by code following it in the file. If the current context is exhausted, the VM will traverse up to a lexically "outer" scope and perform search again (later assigned labels will not be accessible in earlier contexts). This continues up-and-outward until all contexts have been exhausted at which time the VM will error out.
+
+## The Void Label (`*`)
+
+The asterisk `*` is a reserved identifier representing **The Void**. It is used to match structure without binding data.
+
+- **Behavior:** It matches any value but stores nothing.
+- **Reading:** Evaluating `*` always returns **Empty** (it never holds a value).
+- **Assignment:** Explicit assignment to `*` (e.g., `* := 10`) is a **Syntax Error**. It cannot be used as a storage target.
+- **Usage:** It is exclusively used in **Patterns** and **Destructuring** to ignore specific arguments/elements or as the default pattern for **Selectors**.
+
+## The Empty Label (`___`)
+
+The three-underscore syntax `___` is a reserved identifier representing **The Empty Value**. It is the singleton value for "nothing" in Rhumb.
+
+- **Behavior:** It matches any value but stores nothing. `a == ___` is equivalent to `a[?]`.
+- **Reading:** Evaluating `___` always returns **Empty** (it never holds a value).
+- **Assignment:** Explicit assignment to `___` (e.g., `___ := 10`) is a **Syntax Error**. It cannot be used as a storage target.
+- **Usage:** It is exclusively used in **Patterns** and **Destructuring** to ignore specific arguments/elements or as the default pattern for **Selectors**.
 
 
 --- END OF FILE: tutorial-syntax/labels.md ---
@@ -603,36 +1802,37 @@ sidebar_position: 9
 
 # Maps
 
-A map initializer is a semicolon-delimited sequence of zero or 
+A map initializer is a semicolon-delimited sequence of zero or
 more pairs of field names and associated values of a map, enclosed
 in square brackets `[]`. Maps can also be initialized by evaluating
 a subroutine or function that returns a map.
 
 ```rhumb
 m.1 .= [a::'foo'; b::42; c::[]]
-console\log(m.1\a) % Expected output: "foo"
+m.1\a %= 'foo'
 ```
 
-
 Maps are also used for positional elements by just not giving the
-value a left-hand side field name. 
+value a left-hand side field name.
 
 ```rhumb
 m.2 .= ['foo';123] % two positional elements
-console\log(m.2\2) % Expected output: 123
+m.2\2 %= 123
+m.2\foo % Error: there is no field with a label of 'foo'
 ```
 
-Positional elements can be accessed with 1-based numerical indexes.
+Positional elements can also be accessed with 1-based numerical indexes.
 
 ```rhumb
 toppings .= ['pepperoni', 'bell peppers']
 toppings[1] %= pepperoni
 ```
+
 :::info Note: Accessing all elements
 
 If you want to grab all list elements and leave the map fields behind,
 you can access them with the field operator `[0]`, the zeroth element
-represents only the positional elements of a given map.
+represents all of the positional elements of a given map (but no fields).
 
 :::
 
@@ -659,30 +1859,34 @@ some-map[foo]
 ```
 
 The first version uses a literal value but the second version will
-evaluate the `foo` label which could either invoke a subroutine or 
+evaluate the `foo` label which could either invoke a subroutine or
 acquire direct access to the value in memory.
 
-If you supply a text or key literal, you can get access to the 
-associated field label within the map. 
+If you supply a text or key literal, you can get access to the
+associated field label within the map.
 
 ```rhumb
 some-map['foo']
 some-map["f$('o' ^^ 2)"]
 ```
+
 These can also be written with the syntax sugar `\` operator.
+
 ```rhumb
 some-map\1
 some-map\foo
 some-map\'foo'
 some-map\"f$('o' ^^ 2)"
 ```
-The syntax `some-map\foo`, `some-map['foo']` and `some-map\'foo'` are equivalent. 
+
+The syntax `some-map\foo`, `some-map['foo']` and `some-map\'foo'` are equivalent because the compiler will search
+the symbol table for a symbol that matches the text value `'foo'`.
 
 ## Computed Field Names
 
 Map initializer syntax also supports computed field names. That
 allows you to put an expression in brackets `<>`, that will
-be computed and used as the property name. 
+be computed and used as the property name.
 
 ```rhumb
 i := 0
@@ -691,16 +1895,16 @@ a .= [
     <"foo$(i := i ++ 1)"> :: i
     <"foo$(i := i ++ 1)"> :: i
 ]
-console\log(a\foo1) %= 1
-console\log(a\foo2) %= 2
-console\log(a\foo3) %= 3
+a\foo1 %= 1
+a\foo2 %= 2
+a\foo3 %= 3
 
 items .= ['A'; 'B'; 'C']
 map .= [
-    <items>..'Hello'
+    <items>..'Hello' % the compiler will convert non-field values to their text representation
 ]
-console\log(map) %= "A;B;C" .. "Hello"
-console\log(map\"A;B;C") %= "Hello"
+map %= "A;B;C" .. "Hello"
+map\"A;B;C" %= "Hello"
 
 param .. 'size'
 config .. [
@@ -708,7 +1912,7 @@ config .. [
     <"mobile$(param[1]\upper-case)$(param[2|+])"> .. 4
 ]
 
-console\log(config) %= [size::12; mobileSize..4]
+config %= [size::12; mobileSize..4]
 ```
 
 ### Spread fields
@@ -728,7 +1932,7 @@ merged-map .= [&m1; &m2] %= [foo::"qux";x::42;y::13]
 
 Submaps are "mini-proto-environments" that allow you to specify label references
 as a sequence of elements. Each label reference element exists in a kind of
-"label limbo" where they await assignment. They can be invoked like functions 
+"label limbo" where they await assignment. They can be invoked like functions
 where each argument element gets assigned to the label element at that position.
 They can also be given to the applicative operator `->` which then becomes your
 named parameters for a function. The difference is that when invoking, you are
@@ -740,15 +1944,14 @@ foo ++ bar
 warehouse .= <[name; maximum; current::0]>
 north .= warehouse('Northside', 2,000.-)
 south .= warehouse('South River', 2,500.-)
-supply-run .= [load; &warehouse] -> (
+supply-run .= [load; <warehouse>\*] -> (
     remaining .= maximum -- current -- load
     remaining << 0 => $not-enough-space(-remaining)
     current := current ++ load
 )
 ```
 
-You can spread them with the `&` operator and they will flatten all their
-labels as parameters in the main parameter list (itself a submap).
+As you can see, to _spread_ inside of a Submap, you cannot use `&` because that acts as a "slurp" operation inside of Submaps. Instead, a Submap's parameters can be spread as arguments using the reference brackets (`<...>`) and the `\*` or `[*]` field operators.
 
 ## Destructuring
 
@@ -758,8 +1961,8 @@ into labels in the current scope.
 
 ### Description
 
-The map literal expression provides an easy way to create *ad hoc*
-packages of data. 
+The map literal expression provides an easy way to create _ad hoc_
+packages of data.
 
 ```rhumb
 x .= [1; 2; 3; 4; 5]
@@ -790,6 +1993,7 @@ numbers .= []
 map .= [a..1; b..2; c..3]
 [a..numbers[1]; b..numbers[2]; c..numbers[>]] ^= map
 ```
+
 You can use the [append](operators#-append) and [unshift](operators#-unshift) field ops as well.
 
 ### Default Value
@@ -803,6 +2007,7 @@ label is `empty`.
 [.b??2] ^= [b..empty] % a is 2
 [.c??3] ^= [c..0] % c is 0
 ```
+
 The right-hand side of the default operator is actually
 auto-referenced as a subroutine so you can do any kind of
 expression here.
@@ -815,7 +2020,7 @@ expression here.
 ### Slurp expressions
 
 You can take arbitrary amounts of elements of positional elements
-by using the [`&`](operators#-slurp--spread-1) operator. This element
+by using the [`&`](operators#-slurp-1) operator. This element
 will greedily take all surrounding elements up to the next positional
 field given. It also greedily takes all uncaptured fields.
 
@@ -826,8 +2031,10 @@ console\log(others) % [b..2;c..3]
 [1..first; &others] ^= ['a';'b';'c']
 console\log(others) % [1..'b';2..'c']
 ```
+
 You can place as many as you want within a destructuring pattern but
 only the last slurp argument will receive the fields.
+
 ```rhumb
 [3..prefix; &name; 10..separator; &suffix] .= get-chars(file)
 % here, name contains the positional elements from 4 through 9
@@ -881,9 +2088,9 @@ console\log(reward) %= 5,000,000.-
 ### Picking a first positional element
 
 If the map being destructured contains a large number of elements,
-you can pick an arbitrary point to start your positional elements. 
+you can pick an arbitrary point to start your positional elements.
 In fact, you could just use this syntax for all positional
-destructuring. 
+destructuring.
 
 ```rhumb
 foo .= ['a';'b';'c';'d';'e';'f';'e';'g']
@@ -905,6 +2112,7 @@ foo .= [a..'adam'; b..'brian'; c..'charles']
 [a.._; &names] ^= foo
 console\log(names) %= [b..'brian'; c..'charles']
 ```
+
 To ignore positional elements, use the same placeholder but with
 a positional field.
 
@@ -914,7 +2122,7 @@ fruits .= ['apples'; 'oranges'; 'bananas']
 console\log(non-favorites) %= ['oranges'; 'bananas']
 ```
 
-The slurp will start from after the most recent positional field 
+The slurp will start from after the most recent positional field
 has been captured. You can effectively slice into a map by just
 using destructuring syntax.
 
@@ -922,6 +2130,7 @@ using destructuring syntax.
 name .= ['j'; 'a'; 'c'; 'o'; 'b']
 [1.._;&mid;5.._] ^= name
 ```
+
 ### Taking fields from maps passed as function parameters
 
 Maps passed into function as an argument can be destructured into
@@ -943,6 +2152,7 @@ user .= [
     ]
 ]
 ```
+
 Here we show how to destructure a field of the passed map into a
 label with the same name. The parameter value `[.id]` indicates that
 the id field of the map passed to the function should be destructured
@@ -976,7 +2186,7 @@ console\log(who-is(user)) %= jdoe is Jane
 ### Setting a function parameter's default value
 
 Default values can be specified using assignment operators, and will
-be used as label values if a specified field does not exist in the 
+be used as label values if a specified field does not exist in the
 passed map.
 
 Below we show a function where the default size is `'big'`, default
@@ -999,14 +2209,13 @@ In the function submap for `draw-chart` above, the destructured
 left-hand side has a default value of an empty map `??[]`.
 
 You could also have written the function without that default.
-However, if you leave out that default value, the function will 
+However, if you leave out that default value, the function will
 look for at least one argument to be supplied when invoked, whereas
 in its current form, you can call `draw-chart` without supplying
 any arguments. Otherwise, you nead to at least supply an empty map
 literal.
 
 ### Nested map destructuring
-
 
 ```rhumb
 metadata .= [
@@ -1068,7 +2277,7 @@ people <> [[name..n; family..[father..f]]] ->
 
 ### Computed map field names and destructuring
 
-Computed field names, like on map literals, can be used 
+Computed field names, like on map literals, can be used
 with destructuring.
 
 ```rhumb
@@ -1109,6 +2318,7 @@ my-map .= [
 console\log(foo) % '123'
 console\log(bar) % '456'
 ```
+
 
 --- END OF FILE: tutorial-syntax/maps.mdx ---
 
@@ -1237,7 +2447,7 @@ A label that is `empty`, no longer has any references to it, and is no longer wi
 
 Take all of the subfields of this value and consider them a single map for subsequent operations to be performed against.
 
-This operator is useful to skip over the fields within the base object that may override some underlying operation and you can then pass a label to one of the subfields instead. It allows you to perform this message passing *without actually knowing the subfield's label*.
+This operator is useful to skip over the fields within the base object that may override some underlying operation and you can then pass a label to one of the subfields instead. It allows you to perform this message passing _without actually knowing the subfield's label_.
 
 ```rhumb
 foo .= [
@@ -1299,7 +2509,7 @@ qux2 .= inc2(foo[:]) % foo is now explicitly copied
 
 :::info Note: Map References
 
-Maps are always references so for a map labeled `m`, the expression `m` and `<m>` are equivalent. 
+Maps are always references so for a map labeled `m`, the expression `m` and `<m>` are equivalent.
 
 This operator allows you to sever the reference by creating a clone of the corresponding map and then the expression evaluates to a reference to that new cloned map.
 
@@ -1309,6 +2519,7 @@ baz .= []
 link(baz; 'wow') % baz == [foo..'wow']
 link(baz[:]; 'BAZ IS BROKEN!') % original baz is unchanged
 ```
+
 Since the copied `baz` map is never stored anywhere, it will soon be garbage collected.
 
 :::
@@ -1383,7 +2594,7 @@ See [field op](#-copy) description.
 The `NewWarehouse` subroutine stores the first arg in `pos` field.
 
 ```rhumb
-wh2 .= NewWarehouse(:positions; 'Oak') 
+wh2 .= NewWarehouse(:positions; 'Oak')
 wh2\pos\manager := Employee('Sandra'; 1734521)
 wh3 .= NewWarehouse(:positions; 'Maple')
 wh3\pos\manager := Employee('Darius'; 4827142)
@@ -1396,6 +2607,21 @@ wh4 .= NewWarehouse(wh3\pos; 'Cherry')
 ```
 
 Now, `wh4` shares positions with `wh3` and changes are applied to both maps.
+
+When `:` is used prior to a subroutine, instead of copying the result of the subroutine execution, it creates a copy of the subroutine's base map. This is useful for creating constructor subroutines, otherwise any changes will be applied to the original base map.
+
+```rhumb
+WarehouseConstructor .= [pos; name] -> (
+    !\positions := pos
+    !\name := name
+    #(!) % If there is no explicit return signal, the default is to return the base map
+)
+
+wh2 .= :WarehouseConstructor(:positions; 'Oak')
+wh2\pos\manager := Employee('Sandra'; 1734521)
+wh3 .= :WarehouseConstructor(:positions; 'Maple')
+wh3\pos\manager := Employee('Darius'; 4827142)
+```
 
 ### `+` Numerical Coerce
 
@@ -1452,7 +2678,7 @@ print .= <(console\log(&$0))> % $0 is all arguments
 
 ### `#` Signal Outward
 
-You can send events outward into any active selector by using the `#` signal operator. You can either specify a label for the signal or leave it anonymous. Anonymous signals are used for returning values out of subroutines if you don't want to wait for the final expression or if you have used a `!` base expression. 
+You can send events outward into any active selector by using the `#` signal operator. You can either specify a label for the signal or leave it anonymous. Anonymous signals are used for returning values out of subroutines if you don't want to wait for the final expression or if you have used a `!` base expression.
 
 ```rhumb
 User .= [name; age] -> (
@@ -1471,12 +2697,12 @@ User .= [name; age] -> (
 Anonymous signals will trigger the nearest active selector with a default section. You can implement historical programming idioms with this system.
 
 ```rhumb
-if .= cond -> =cond => #()  
+if .= cond -> =cond => #()
 if(foo == yes) {
     console\log("foo is true")
 }
 
-switch .= cond -> #(cond) 
+switch .= cond -> #(cond)
 switch(getchar) {
     'a' .. console\log("got a!")
     'b' .. console\log("got b!")
@@ -1629,6 +2855,7 @@ foo .. [
 ]
 foo\* == yes % [yes; no; no]
 ```
+
 You can even place the `*` wildcard operator inside of a partial label and it will attempt to find any matching labels.
 
 ```rhumb
@@ -1661,7 +2888,7 @@ foo\\*.value -> foo\\$0 % [10; 20]
 
 ## Infix Operators
 
-Operators that work on two values on either side are called infix operators. 
+Operators that work on two values on either side are called infix operators.
 
 ### `.=` Assignment, Immutable
 
@@ -1824,7 +3051,6 @@ This is exactly like the `->` function operator, but it also sets the base `!` t
 
 ### `$>` Let Function (IIFE)
 
-
 This is exactly like the `->` function operator, but it executes the corresponding function immediately (and also sets the base `!` to be the same base as the lexical location of the function) instead of storing the function for later usage.
 
 ### `@@` Temporary Subfield
@@ -1844,6 +3070,7 @@ When used with selectors, it combines the selector paths into one when evaluatin
 When used with wildcard operator, this expands the search to any inner map structure as well.
 
 When used with lists of strings, it parses the strings as paths and evaluates to the resulting inner location's value.
+
 
 --- END OF FILE: tutorial-syntax/operators.md ---
 
@@ -1893,47 +3120,53 @@ Collections of sequential expressions. Routines are your basic
 parentheses-based grouping mechanism.
 
 ```rhumb
-(one;2)
+(one; two)
 ```
 
-Two labels in a routine. In Rhumb, the only separator is `;` as
-the `,` operator is non-existent.
-
-Routines are evaluated first and each one contains a mini-environment
-that you can provide new label bindings or any other expressions.
+This example shows two labels in a routine. Each expression separated by `;` is executed and the routine evaluates to the last expression. Any expressions preceding the last one are discarded. If you try to assign a routine to a label or field, you will only store the result, not the routine itself.
 
 ## Subroutines
 
 When you want to store a routine and execute it at a later time,
-place it in `<()>` and it will be converted into a reference routine.
-Reference routines are known as **subroutines** in Rhumb.
+place the parentheses within angle brackets (`<()>`) and it will be converted into a reference routine.
+Reference routines are known as **subroutines** in Rhumb. The result of evaluating a subroutine is the stored reference to an anonymous routine.
 
 ```rhumb
 <(foo; bar)>
 ```
-You would then supply a label to this value and could invoke it at
-a later time. These subroutines are just reusable code but there
-is a way to supply unlabeled arguments:
+
+To use a subroutine, you would supply a label to this value and then invoke it at a later time. These subroutines are just reusable code but there is a way to supply unlabeled arguments:
 
 ```rhumb
-fib .= <($1 << 2 => $1 !> fib($1 -- 1) ++ fib($1 -- 2))>
+fib .= <(?1 << 2 => ?1 !> fib(?1 -- 1) ++ fib(?1 -- 2))>
+fib(10) %= 55
 ```
+
+#### Arguments
+
+The prefix operator `?` is used to access the raw arguments passed to the current subroutine.
+
+- **`?1` ... `?N`**: Accesses the Nth argument (1-based index).
+- **`?0`**: Accesses the full list of arguments as a Map.
+- **Behavior**: Accessing an index that was not passed evaluates to `___` (Empty).
 
 :::info Note: Base Expression Usage in Subroutines
 
-Whenever a subroutine uses a base expression, it causes the subroutine to shift it's default return value from the last expression to the base map. This is how Rhumb differentiates between constructors and non-constructor subroutines.
+Whenever a subroutine uses a base expression, it causes the subroutine to shift it's default return value from the last expression to the base map. If the user doesn't want this behavior, they must explicitly return a value at the end of the subroutine. This is how Rhumb differentiates between constructors and non-constructor subroutines.
 
 ```rhumb
-multiply .= [x] -> x ** 2 % returns the multiplication result
-User := [name] -> !\name := name % returns ! (base)
+multiply .= [x] -> x ** 2 % returns the last expression's value
+User := [name] -> !\name := name % returns ! (the base map)
 ```
 
-When adding methods, it's important to bind the subroutine to the appropriate base map.
+When adding "methods" (subroutines that extend the base map), it's important to bind the subroutine to the appropriate base map.
 
 ```rhumb
 <User>\set-age := [age] -> !\dob := Date\now\year -- age
 <User>\<set-age> .= <User>\<set-age> !! <User>
 ```
+
+Otherwise, the subroutine will use its own base map containing only the fields defined during the routine's code.
 
 Rhumb gives you a shorthand way to accomplish this:
 
@@ -1945,9 +3178,7 @@ Rhumb gives you a shorthand way to accomplish this:
 
 ## Invocation
 
-Imagine we have a subroutine with a label of `baz`. You would invoke
-by just referencing it. If you want to supply arguments, you can include 
-a postfix set of parentheses but they are not required.
+Imagine we have a subroutine with a label of `baz`. You would invoke by just referencing it. If you want to supply arguments, you can include a postfix set of parentheses but they are not required when there are no arguments.
 
 ```rhumb
 baz   % same as
@@ -1960,46 +3191,64 @@ using the `;` operator.
 ```rhumb
 baz(1; two)
 ```
+
 :::tip Why no comma operator?
 
-Because commas are part of numbers as per some cultural conventions.
-Commas don't make sense in labels like periods do so they are used
-only in the number token and in the prefix reply operator.
+Because commas are part of numbers as per some cultural conventions. Commas aren't as intuitive as periods are (due to existing technical culture) when parsing labels, so they are only used within number tokens as either a decimal separator or for grouping thousands.
 
 :::
 
 ## Functions
 
-When you want to explicitly name the arguments that are supplied to a
-subroutine, provide them with a [submap](maps.mdx#submaps). A submap is normally
-delinaeated with a `<[...]>` but the `->` function operator will do the
-referencing automatically.
+When you want to explicitly name the arguments that are supplied to a subroutine, provide them with a [submap](maps.mdx#submaps). A submap is normally delinaeated with a `<[...]>` but the `->` function operator will do the referencing (`<...>`) automatically.
 
 ```rhumb
 pythag .= [a; b; c] -> a^^2 ++ b^^2 // c^^2
-equiv-subroutine .= <($1^^2 ++ $2^^2 // $3^^2)>
+equiv-subroutine .= <(?1^^2 ++ ?2^^2 // ?3^^2)>
 ```
 
-For a submap or function parameters, you must supply a surrounding
-op of `[]` at the least. You can even slurp or concatenate two submaps together in a manner:
+For a submap or function parameters, you must supply a surrounding op of `[]` at the least. You can even slurp or concatenate two submaps together in a manner:
 
 ```rhumb
 person .= <[first; last; age]>
 employee .= <[grade; title; id]>
-access0 .= [p::person; e::employee]
-access1 .= [person; employee] -> (
+
+% 'person' and 'employee' are just argument labels here
+accessWrong .= [person; employee] -> (...)
+
+% The ref. ops `<...>` around a label inside of a submap
+% literal treats the label as a reference to a value
+% instead of an argument label. This allows you to keep
+% the structure of a submap in tact.
+access1 .= [<person>; <employee>] -> (
     employee\grade << 23 =>
-        #access-denied(person\first; person\last; employee\id)
+        #access-denied(
+            person\first;
+            person\last;
+            employee\id
+        )
 )
-access2 .= [&person; &employee] -> (
+
+% To reference all fields from the submaps into the
+% current routine's scope and avoids the need for writing
+% the labels out with the `\` operator in the body of the
+% routine:
+access2 .= [<person>\*; <employee>\*] -> (
     grade << 23 =>
         #access-denied(first; last; id)
 )
+
+% Instead of using the reference operator, you can also
+% use the concat operator '&&'. This concatenates the two
+% submaps together and returns a new submap. Because we're
+% using a routine `(...)`, the resulting submap is then
+% used as the function's parameter list.
 access3 .= (person && employee) -> (
     grade << 23 =>
         #access-denied(first; last; id)
 )
 ```
+
 Here, you can see how parameter lists are first-class constructs that captures the spirit of named arguments, records and scope.
 
 
@@ -2211,3 +3460,558 @@ Here is the list of languages and their versions
 If yours is missing, please reach out or submit a pull request!
 
 --- END OF FILE: tutorial-syntax/true-false.md ---
+
+
+--- START OF FILE: virtual-machine.md ---
+
+---
+sidebar_position: 2
+---
+
+# Virtual Machine
+
+Architecture & Implementation Guide
+
+## The Complete NaN-Boxed Taxonomy
+
+In Odin, the VM operates on a strict 64-bit IEEE-754 NaN-boxing architecture. Every piece of data circulating in the VM is a Value.Core Masks & PrimitivesNote: Standard IEEE-754 floats are represented by any bit pattern where the exponent bits are not fully saturated. Boxed objects exist in the NaN space.Value :: distinct u64
+
+```odin
+// --- Core Markers & Pointers ---
+MASK_ADDRESS    :: 0xFF_FC_00_00_00_00_00_00 // Generic Tenured Object / GC Forwarding Pointer
+MASK_SENTINEL   :: 0x7F_FE_00_00_00_00_00_00 // Stack boundary marker
+
+// --- Inline Primitives (Passed by Value) ---
+MASK_FAILURE    :: 0x7F_FC_00_00_00_00_00_00 // Base Failure Mask
+  MASK_PROG_FAIL  :: 0x7F_FC_00_02_00_00_00_00
+  MASK_MATH_FAIL  :: 0x7F_FC_00_04_00_00_00_00
+MASK_TRUTH      :: 0x7F_FC_40_00_00_00_00_00 // Truth Value
+  MASK_TRUE       :: 0x7F_FC_40_10_00_00_00_00
+  MASK_FALSE      :: 0x7F_FC_40_20_00_00_00_00
+MASK_EMPTY      :: 0x7F_FC_80_00_00_00_00_00 // Null/Nil
+MASK_INTEGER    :: 0x7F_FC_C0_00_00_00_00_00 // 32-bit Whole Number
+MASK_DATE       :: 0x7F_FC_10_00_00_00_00_00 // 45-bit Millisecond Epoch Timestamp
+MASK_RUNE       :: 0x7F_FD_00_00_00_00_00_00 // Unicode Character
+MASK_SYMBOL     :: 0x7F_FC_08_00_00_00_00_00 // Interned String ID
+
+// --- The Word Flag (Contextual Modifiers) ---
+// Bit 37: A single bit reused across different primitive types to alter behavior without allocating space
+WORD_FLAG             :: 0x00_00_00_20_00_00_00_00
+  FLAG_SUB_FIELD      :: 0x00_00_00_20_00_00_00_00 // Applied to Fields: Used in INNER traversal
+  FLAG_HANDLED_BRANCH :: 0x00_00_00_20_00_00_00_00 // Applied to Booleans: Protects falsy successes in => ~> chains
+  FLAG_MEGAMORPHIC    :: 0x00_00_00_20_00_00_00_00 // Applied to Symbols: Disables PIC caching for highly dynamic sites
+  FLAG_ZOMBIE_PROC    :: 0x00_00_00_20_00_00_00_00 // Applied to Processes: Indicates it is paused/yielding
+
+// --- Execution & Structural Objects (Eden Heap) ---
+// WHY DISTINCT MASKS? "Zero-Dereference Type Checking".
+// By encoding the object type in the pointer, the VM avoids a RAM lookup (cache miss) just to check types during dynamic dispatch.
+
+// Literal Boxes (Places)
+MASK_PLACE          :: 0x7F_FC_40_00_00_00_00_00 // Boxed Primitive / Reference Slot
+  MASK_PLACE_FLOAT  :: 0x7F_FC_40_02_00_00_00_00 // 64-bit IEEE-754 Float in a Box
+  MASK_PLACE_FAIL   :: 0x7F_FC_40_04_00_00_00_00 // Failure in a Box
+  MASK_PLACE_TRUTH  :: 0x7F_FC_40_06_00_00_00_00 // Boolean in a Box
+  MASK_PLACE_EMPTY  :: 0x7F_FC_40_08_00_00_00_00 // Empty in a Box
+  MASK_PLACE_INT    :: 0x7F_FC_40_0A_00_00_00_00 // 32-bit Whole Number in a Box
+  MASK_PLACE_RUNE   :: 0x7F_FC_40_0C_00_00_00_00 // Unicode Character in a Box
+  MASK_PLACE_SYMBOL :: 0x7F_FC_40_0E_00_00_00_00 // Interned String ID in a Box
+  MASK_PLACE_VERS   :: 0x7F_FC_40_10_00_00_00_00 // Version in a Box
+  MASK_PLACE_DATE   :: 0x7F_FC_40_12_00_00_00_00 // 45-bit Millisecond Epoch Timestamp in a Box
+
+// Standard Heap Objects
+MASK_OBJECT         :: 0x7F_FE_80_00_00_00_00_00 // Base Category
+  MASK_MAP          :: 0x7F_FE_80_02_00_00_00_00 // Pure object: No positional elements
+  MASK_MAP_LIST     :: 0x7F_FE_80_04_00_00_00_00 // Hybrid Map with positional backing list
+  MASK_ROUTINE      :: 0x7F_FE_80_06_00_00_00_00 // Executable Code
+  MASK_SELECTOR     :: 0x7F_FE_80_08_00_00_00_00 // Pattern-Matching Block / Switch
+  MASK_SUBMAP       :: 0x7F_FE_80_0A_00_00_00_00 // Parameter Set / Data Constructor
+
+// Array Data Objects
+MASK_ARRAY          :: 0x7F_FE_80_00_00_00_00_00 // Base Category
+  MASK_LIST         :: 0x7F_FE_80_02_00_00_00_00 // Used strictly in Chunks and MapLists
+  MASK_TEXT         :: 0x7F_FE_80_04_00_00_00_00 // User-facing String type
+  MASK_SEQUENCE     :: 0x7F_FE_80_06_00_00_00_00 // Used exclusively in Chunks
+  MASK_CACHE        :: 0x7F_FE_80_08_00_00_00_00 // Polymorphic Inline Cache
+
+// Metadata & Control Objects
+MASK_LEGEND         :: 0x7F_FF_00_00_00_00_00_00
+  MASK_MAP_LEGEND   :: 0x7F_FF_00_02_00_00_00_00 // Map Metadata/Class descriptor)
+  MASK_TEXT_LEGEND  :: 0x7F_FF_00_04_00_00_00_00 // Text Metadata, delegates to backing map
+MASK_FIELD          :: 0x7F_FF_40_00_00_00_00_00 // Map Field descriptor
+
+// First-Class Tuplespace Objects
+MASK_TUPLE          :: 0x7F_FF_80_00_00_00_00_00
+  MASK_TUPLE_SIGNAL :: 0x7F_FF_80_02_00_00_00_00 // `#` (Bubble Up Request)
+  MASK_TUPLE_REPLY  :: 0x7F_FF_80_04_00_00_00_00 // `^` (Drill Down Response)
+  MASK_TUPLE_PROCL  :: 0x7F_FF_80_06_00_00_00_00 // `$` (Static State / Assertion)
+
+// Virtual Machine State Objects
+MASK_VIRTUAL      :: 0x7F_FF_C0_00_00_00_00_00
+  MASK_CHUNK        :: 0x7F_FF_C0_02_00_00_00_00 // Code Coordinator
+  MASK_CONTEXT      :: 0x7F_FF_C0_04_00_00_00_00 // Execution Frame Object
+  MASK_PROCESS      :: 0x7F_FF_C0_06_00_00_00_00 // Green Thread (Actor)
+```
+
+## Object Topologies & Memory Layouts
+
+All objects allocate contiguous 64-bit word arrays in the Eden heap. Logic is dispatched using explicit integer offsets.
+
+### Metadata & Control Objects
+
+```odin
+// THE LEGEND (Standard Map Hidden Class / Dependency Graph)
+MAP_LEGEND_OFFSET_MARK        :: 0 // Value(MASK_LEGEND)
+MAP_LEGEND_OFFSET_GC_LINK     :: 1 // Forwarding address / List Traversal
+MAP_LEGEND_OFFSET_FIELD_COUNT :: 2
+MAP_LEGEND_OFFSET_SUPPLY_LINK :: 3 // JIT invalidation tracking
+MAP_LEGEND_OFFSET_DEMAND_LINK :: 4 // JIT invalidation tracking
+MAP_LEGEND_OFFSET_FIELDS      :: 5 // Inline absolute offset field definitions
+
+// THE TEXT LEGEND (Metadata for Texts)
+// Texts do not store fields. They delegate to a backing Map for OUTER ops.
+TEXT_LEGEND_OFFSET_MARK       :: 0 // Value(MASK_LEGEND)
+TEXT_LEGEND_OFFSET_GC_LINK    :: 1 // Forwarding address during Scavenge
+TEXT_LEGEND_OFFSET_PARENT     :: 2 // Pointer to a backing map containing wrappers for OUTER array ops
+
+// THE CHUNK (JIT Coordinator - NO LEGEND)
+CHUNK_OFFSET_MARK             :: 0 // Value(MASK_CHUNK)
+CHUNK_OFFSET_SEQUENCE         :: 1 // Pointer to Executable Bytes
+CHUNK_OFFSET_LIST             :: 2 // Pointer to GC-tracked Word Array
+
+// THE PIC ARRAY (Polymorphic Inline Cache)
+PIC_OFFSET_MARK               :: 0 // Value(MASK_ARRAY)
+PIC_OFFSET_LEGEND             :: 1 // Pointer to standard Array Legend
+PIC_OFFSET_LENGTH             :: 2 // Boxed Integer: Number of words in payload
+PIC_OFFSET_ORIGINAL_SYM       :: 3 // The original MASK_SYMBOL being looked up
+PIC_OFFSET_PAIRS              :: 4 // [Legend_A, Offset_A, Legend_B, Offset_B...]
+```
+
+### Base Objects & Execution
+
+```odin
+// THE MAP, SUBMAP, AND REALM
+// Note: Submaps and Realms share the exact same structural memory layout as a Map.
+// The distinct Mark dictates VM execution behavior.
+MAP_OFFSET_MARK   :: 0 // Value(MASK_MAP) or MASK_SUBMAP
+MAP_OFFSET_LEGEND :: 1 // Includes a delegate/parent pointer field for scope chaining
+MAP_OFFSET_VALUES :: 2 // Field Values start here
+
+// THE MAPLIST (The Hybrid Layout)
+// Used when an object dynamically receives positional elements (a[0] := "foo").
+MAPLIST_OFFSET_MARK   :: 0 // Value(MASK_MAP_LIST)
+MAPLIST_OFFSET_LEGEND :: 1 // Pointer to the exact same Legend used by the pure Map
+MAPLIST_OFFSET_LIST   :: 2 // Pointer to a MASK_LIST containing the positional elements
+MAPLIST_OFFSET_VALUES :: 3 // Dynamic Field Values shift down to start here
+
+// THE PLACE (Boxed Primitive / Reference Slot)
+PLACE_OFFSET_MARK   :: 0 // Value(MASK_PLACE)
+PLACE_OFFSET_LEGEND :: 1
+PLACE_OFFSET_WORD   :: 2 // Boxed primitive payload
+PLACE_OFFSET_VALUES :: 3 // Field Values start here
+
+// THE ROUTINE AND SELECTOR (Executable Closures)
+// Selectors are fundamentally executable code blocks. They share the exact memory layout
+// as Routines, possessing executable Chunks and lexical Scopes.
+ROUTINE_OFFSET_MARK   :: 0 // Value(MASK_ROUTINE) or MASK_SELECTOR
+ROUTINE_OFFSET_LEGEND :: 1
+ROUTINE_OFFSET_CHUNK  :: 2 // Pointer to Chunk (Executable code)
+ROUTINE_OFFSET_SCOPE  :: 3 // Pointer to Captured Lexical Map (Environment)
+ROUTINE_OFFSET_VALUES :: 4 // Field Values start here
+
+// THE CONTEXT (Execution Frame - 38 Words)
+CTX_OFFSET_MARK    :: 0 // Value(MASK_CONTEXT)
+CTX_OFFSET_ROUTINE :: 1 // Pointer to executing Routine/Selector
+CTX_OFFSET_CALLER  :: 2 // Pointer to parent Context (Call stack)
+CTX_OFFSET_LOCALS  :: 3 // Pointer to current Map of local variables
+CTX_OFFSET_PC      :: 4 // ABSOLUTE pointer to current instruction
+CTX_OFFSET_SP      :: 5 // Stack pointer index (0-32)
+CTX_OFFSET_STACK   :: 6 // Isolated operand stack (Index 6 to 37)
+
+// THE PROCESS (Green Thread)
+PROC_OFFSET_MARK    :: 0 // Value(MASK_PROCESS) | FLAG_ZOMBIE_PROC (if paused)
+PROC_OFFSET_GC_LINK :: 1 // Forwarding address during Scavenge
+PROC_OFFSET_SPACE   :: 2 // Pointer to Current Space (Realm)
+PROC_OFFSET_CONTEXT :: 3 // Pointer to the currently executing Context frame
+
+// THE TUPLE (Signals, Replies, Proclamations)
+TUPLE_OFFSET_MARK   :: 0 // MASK_TUPLE_SIGNAL, \_REPLY, or \_PROCL
+TUPLE_OFFSET_GC_LINK :: 1 // Forwarding address during Scavenge
+TUPLE_OFFSET_REALM :: 2 // Pointer to the Realm/Map this tuple is attached to
+TUPLE_OFFSET_TOPIC :: 3 // A MASK_SYMBOL literal (e.g., 'foo')
+TUPLE_OFFSET_COUNT :: 4 // Boxed integer: Number of arguments (used to navigate Tuple lists)
+TUPLE_OFFSET_ARGS :: 5 // 64-bit argument Values start here...
+```
+
+### Array Objects (Lists & Sequences)
+
+```odin
+// THE LIST (Standard Word Array)
+LIST_OFFSET_MARK :: 0 // Value(MASK_ARRAY)
+LIST_OFFSET_LEGEND :: 1 // Pointer to an Array Legend
+LIST_OFFSET_WORD_COUNT :: 2 // Boxed integer length
+LIST_OFFSET_DATA :: 3 // 64-bit Values start here
+
+// THE TEXT (Unicode String)
+TEXT_OFFSET_MARK :: 0 // Value(MASK_ARRAY)
+TEXT_OFFSET_LEGEND :: 1 // Pointer to an Array Legend
+TEXT_OFFSET_RUNE_COUNT :: 2 // Boxed integer length
+TEXT_OFFSET_DATA :: 3 // Packed 32-bit Runes (Rune x 2) start here
+
+// THE SEQUENCE (Read-Only Code Array - NO LEGEND)
+SEQ_OFFSET_MARK :: 0 // Value(MASK_SEQUENCE)
+SEQ_OFFSET_GC_LINK :: 1 // Pointer to what it's connected to
+SEQ_OFFSET_CODE_COUNT :: 2 // Boxed integer length
+SEQ_OFFSET_DATA :: 3 // Packed 8-bit opcodes (Code x 8) start here
+```
+
+### D. Raw Array Packing (Dense Reads)
+
+- Sequence (Code x 8): Packs exactly eight 8-bit opcodes into one 64-bit word.
+- Text (Rune x 2): Packs exactly two 32-bit Unicode Runes into one 64-bit word.
+
+```odin
+@inline
+fetch_instruction :: proc(seq_ptr: [^]Value, absolute_pc: int) -> u8 {
+word_index := SEQ_OFFSET_DATA + (absolute_pc / 8)
+byte_shift := (absolute_pc % 8) \* 8
+return u8((u64(seq_ptr[word_index]) >> byte_shift) & 0xFF)
+}
+```
+
+## The Tripartite Execution Architecture (JIT & W^X)
+
+Executable code is segregated into three distinct objects to satisfy modern OS W^X (Write XOR Execute) policies and protect CPU cache locality.
+
+1. **Chunk (Coordinator):** Lightweight struct linking the code, literals, and local frame layout.
+2. **Sequence (I-Cache):** Pure 8-bit opcodes. Can be moved to **Executable / Read-Only** memory upon JIT compilation. Traced but NOT scanned by the GC.
+3. **List (D-Cache):** NaN-boxed GC pointers and literals. Exists in **Writable / Non-Executable** memory. Traced and aggressively updated by the GC.
+
+## FFI, Caching & Polymorphic Inline Caches (PIC)
+
+To support deep OOP semantics without hardcoding operations, the VM converts slow symbol lookups into blisteringly fast jumps using the Chunk's writable List.
+
+### The Extension Accumulator
+
+Because opcodes are 8-bit (3 bits opcode, 5 bits payload), indexing into large List arrays requires an accumulator.
+
+```odin
+// Inside VM Loop
+opcode := instruction >> 5
+payload := u32(instruction & 0x1F)
+
+switch opcode {
+case OP_EXT:
+vm.index_accumulator += (payload \* 32)
+case OP_OUTER:
+final_index := vm.index_accumulator + payload
+vm.index_accumulator = 0
+execute_outer(vm, ctx_ptr, final_index)
+}
+```
+
+### The PIC Lifecycle
+
+1. Uninitialized: List[index] holds a `MASK_SYMBOL`. The VM does a slow string lookup.
+2. Monomorphic: Overwrites the Symbol with an Integer FFI ID (for OUTER) or the exact Value Offset (for INNER).
+3. Polymorphic (PIC): If a new Receiver type arrives, the VM allocates a MASK_ARRAY (PIC Array). It stores the original Symbol at PIC_OFFSET_ORIGINAL_SYM, then appends [Legend, Offset] pairs. Future calls linearly scan this short array.
+4. Megamorphic: If the PIC Array exceeds 4 pairs, the site is too dynamic. The VM reads the original symbol, applies the `FLAG_MEGAMORPHIC` bit, and overwrites the List pointer with this flagged symbol. The VM now permanently falls back to a hash lookup.
+
+## Dates & The Millisecond Epoch
+
+Dates are aggressively optimized as primitive inline values using a 45-bit Millisecond Epoch approach.
+
+- The Math: The 45-bit payload acts as a signed integer tracking the total milliseconds elapsed since the Unix Epoch (January 1, 1970).
+- The Window: This comfortably covers a ~1,115-year span (~1412 AD to ~2527 AD), providing instant CPU-level addition (e.g., adding days as milliseconds) and timezone-agnostic (UTC) storage without memory allocations.
+- The `DatePlace` Fallback: If a date operation exceeds this 1,115-year window, the VM automatically boxes the primitive into a DatePlace (a standard Place object on the heap). Instead of milliseconds, the DatePlace utilizes a single integer field representing an offset of years from 1/1/1970.
+
+## Maps, Scopes, and Lexical Environments
+
+Maps are the universal workhorse of the Rhumb VM. They act as standard dictionaries, parameter sets, and execution environments simultaneously.
+
+### The Lexical Scope Lifecycle (Routines & Contexts)
+
+Local labels are directly compiled into Map fields. The connection between closures and their execution environment relies on Map delegation:
+
+1. Closure Capture (`OP_CLOSURE`): When the VM encounters a function definition, it allocates a new Routine object. To capture the environment, the VM takes the currently executing Context's `CTX_OFFSET_LOCALS` map pointer and assigns it to the new Routine's `ROUTINE_OFFSET_SCOPE`.
+2. Context Instantiation: When an OUTER opcode invokes the Odin function responsible for handling execution, a new Context frame is instantiated. The Odin FFI handler prepares the `CTX_OFFSET_LOCALS` Map.
+   - If a submap is provided, it is invoked to generate the new locals Map.
+   - Otherwise, a blank Map is generated.
+   - In both cases, the instantiated Map inherently possesses a Legend that correctly describes its fields.
+3. The Delegate Link: The VM wires this new local Map's internal delegate pointer to the `ROUTINE_OFFSET_SCOPE`. When the VM attempts to resolve a local label, it checks the current context's Map. If the field is missing, the Map automatically delegates the lookup up the lexical scope chain.
+
+### Submaps & Parameter Spreading
+
+Submaps are first-class `MASK_SUBMAP` objects delineated by `<[]>`. They are a hybrid between a routine and a map. You build them literally like maps, but bare symbols are treated as empty fields, and assignments are treated as default values.
+
+- Label Limbo: Elements within a Submap exist in a suspended state awaiting assignment. If a label is marked as immutable, the VM assigns it a special Write-Once mutability flag (transitioning from `MASK_EMPTY` to a value exactly once).
+- Named Data Constructors: You can call a submap later like a function, and it will accept arguments and place them into the fields that were defined during its construction.
+- Invocation vs. Application:
+  - When a Submap is invoked like a function, the VM creates a standard `MASK_MAP`, pulling arguments into the corresponding label positions.
+  - When supplied to the applicative operator (`->`), it defines parameters. The Submap layout dictates the precise structure of the `CTX_OFFSET_LOCALS` Map initialized during invocation.
+- To effectively "spread" labels into another Submap:
+  - Wrap the Submap in reference brackets and use the void label field access syntax (`<foo>\*`), the VM flattens the labels directly into the target Submap
+  - If you leave off the `\*`, the Submap structure will be nested inside of the target Submap.
+  - You cannot use the standard `&` operator because that acts as a "slurp" operator inside of Submaps.
+
+## Control Flow & Algebraic Effects
+
+### The Auto-Boxing Mutation Contract
+
+Primitives like `MASK_INTEGER` are strictly pass-by-value. However, they can be dynamically upgraded into heap-allocated `Place` objects when fields are added or mutated. Because there are no distinct "set" opcodes, the VM relies on `MASK_ADDRESS` pointers on the operand stack.
+
+When the user executes a mutating operation like `a\foo := 10` (where `a` currently holds an Integer), the VM handles this seamlessly:
+
+1. `OP_LOCAL a` performs a map lookup in `CTX_OFFSET_LOCALS` and pushes a `MASK_ADDRESS` pointing directly to the memory slot of the local variable.
+2. `OP_INNER foo` pops that `MASK_ADDRESS`. It dereferences it and sees the primitive integer. It allocates a new `Place` object on the heap, writes the new `Place` pointer directly back into the local variable's `MASK_ADDRESS` (updating `a` in-place!), and pushes a new `MASK_ADDRESS` pointing to the `foo` field inside the new `Place`.
+3. `OP_VALUE 10` pushes the literal 10.
+4. `OP_OUTER \*:=*` pops the 10 and the `MASK_ADDRESS`, writing the value directly to the memory slot.
+
+Because locals and heap properties both yield `MASK_ADDRESS` pointers on the stack, `OUTER \*:=*` acts as a universal, polymorphic assignment operator. `MASK_PLACE` is exclusively utilized when a primitive needs to gain properties or cross reference boundaries while maintaining shared mutability.
+
+### Ternary Branching & Handled Success (`=>` and `~>`)
+
+Ternary logic utilizes the `FLAG_HANDLED_BRANCH` bit. This solves the edge case where a standalone fallback (e.g., `a ~> b`) must trigger on a standard false, but a chained ternary (a => false ~> c) must bypass c.
+
+- `=>` (Then): If false, yields a standard Falsy value. If true, evaluates its block. If that block results in a Falsy value, the VM tags it with `FLAG_HANDLED_BRANCH`, marking it as a "Protected Success."
+- `~>` (Else): Triggers only if the stack holds a standard, unprotected Falsy value. If it sees a Truthy value OR a Falsy value carrying the `FLAG_HANDLED_BRANCH` bit, it bypasses its fallback block and passes the value forward.
+  **Note**: The VM scrubs the `FLAG_HANDLED_BRANCH` bit on assignments (`_:=_*`) and returns (bare signals `#()`) to prevent "poisoning" variables downstream.
+
+### Selectors & Pattern Matching (`MASK_SELECTOR`)
+
+Selectors are first-class `MASK_SELECTOR` objects delineated by `{}` (or `<{}>` for realms). Because they evaluate expressions and manage control flow, they are structurally stored as executable Routines, possessing a Chunk and lexical Scope.
+
+The distinction between `..` (Take/Break) and `::` (Peek/Fallthrough) does not require any special Virtual Machine state. It is handled entirely by the Compiler through Static Analysis and standard `OUTER_JMP_F*` (Jump If False) conditional branching.
+
+- `..` (Take / Break): The compiler generates the Right-Hand Side (RHS) execution bytecode, and then artificially appends an `OP_OUTER \*#*` (Return) instruction to force the execution frame to exit.
+- `::` (Peek / Fallthrough): The compiler generates the RHS bytecode, but does not append a return. The Program Counter (PC) naturally falls through to evaluate the next case.
+- Else Clause: The compiler enforces (via static analysis) that exactly one expression exists without a `..` or `::` operator, ensuring a guaranteed return path for the Routine block.
+
+#### Reverse Compilation & Signal Handlers
+
+When a selector is attached directly to an expression (e.g., function calls), the compiler cannot simply compile the expression from left to right. If the compiler generates bytecode for the `foo(bar)` expression before setting up the selector block, any `#error` signals emitted inside `foo` will bypass the handler because the execution context hasn't been wrapped in the handler logic yet.
+
+To solve this, the code generator must carefully compile these structures in reverse:
+
+1. **Handler First:** It must first generate the bytecode that sets up the selector block and registers its handlers in the current execution frame.
+2. **Expression Second:** Only after the handler block is established can it weave in the bytecode to evaluate the attached expression (`foo(bar)`).
+
+This ensures that by the time the VM passes execution into the body of `foo`, the surrounding context is fully prepared to catch and handle any signals it emits.
+
+#### Compiler Backpatching for Branch Offsets
+
+Because the Rhumb compiler is strictly single-pass to maintain blisteringly fast JIT speeds, it encounters a "Forward Reference Problem" when generating \_JMP\*F\* offsets: it doesn't yet know how large the Right-Hand Side (RHS) block will be.
+
+To solve this, the compiler utilizes Backpatching leveraging the Tripartite Architecture (Chunk, Sequence, List):
+
+- Emit Dummy: When the compiler emits the conditional jump, it pushes a dummy offset (e.g., 0) into the Chunk's writable List (D-Cache) and emits a % VALUE opcode pointing to that index.
+- Patch Stack: It pushes that List index onto a temporary "Patch Stack" within the compiler.
+- Compile RHS: It compiles the entire RHS block normally, advancing its internal Program Counter (PC).
+- Backpatch: Once the RHS block is fully generated, the compiler pops the index off the Patch Stack, calculates the true byte offset (Current_PC - Jump_PC), and simply overwrites the dummy slot in the List with the exact MASK_INTEGER.
+
+This enables JMP_F to execute at runtime as an instantaneous $O(1)$ `PC += pop(stack)` math addition without the VM ever needing to scan memory for sentinels.
+
+## Algebraic Effects (EVENT / REPLY)
+
+The Context object acts as a zero-cost continuation.
+
+- EVENT (`#`): Marks the active Context as suspended. Traverses up the `CTX_OFFSET_CALLER` chain until it finds a handler. Evaluates the handler, pushing the suspended Context pointer as an implicit argument to the handler routine.
+- REPLY (`^`): The handler uses the received Context pointer as the target for REPLY. The VM locates this suspended frame, pushes the resolved Value into its isolated stack array, and wakes it up.
+
+## Garbage Collection (Generation & Mark/Sweep)
+
+The Rhumb VM utilizes a dual-generation memory model. Because Context frames are standard Eden objects, there is no custom "Call Stack" GC traversal. The GC simply treats the active Context as the root.
+
+### Generational Memory Spaces
+
+1. Eden Space (Young): Rapid bump-allocation.
+2. Survivor Spaces (From/To): When Eden fills up, the Generation Scavenger runs. Live objects are traced and copied. CRITICAL: When an object is moved from Eden to Survivor, the GC overwrites its Mark word (Offset 0) with a MASK_ADDRESS pointing to the new location. Any subsequent traces instantly recognize the object as forwarded.
+3. Tenured Space (Old): Promoted objects are managed via a Tri-Color Mark/Sweep algorithm to reclaim memory in place.
+
+### The GC Flags Memory Map (Bits 37 - 49)
+
+Every heap object embeds metadata flags directly into its 64-bit Mark word. The bits map exactly as follows:
+
+- **Bits 49 - 46**: Type Bits (`0x00_3C_00_00_00_00_00_00`)
+- **Bits 45 - 44**: JIT Flags (`0x00_00_30_00_00_00_00_00`)
+- **Bits 43 - 42**: Mutability Flags (`0x00_00_0C_00_00_00_00_00`)
+- **Bits 41 - 40**: GC Sweep Flags (`0x00_00_03_00_00_00_00_00`)
+- **Bits 39 - 38**: GC State Flags (`0x00_00_00_C0_00_00_00_00`)
+
+#### GC Sweep Flags (Bits 41-40)
+
+```odin
+GC_SWEEP_WHITE  :: 0x00_00_00_00_00_00_00_00 // Unvisited
+GC_SWEEP_GREY   :: 0x00_00_01_00_00_00_00_00 // Visited, pending children
+GC_SWEEP_BLACK  :: 0x00_00_02_00_00_00_00_00 // Visited, children scanned
+GC_SWEEP_DEAD   :: 0x00_00_03_00_00_00_00_00 // Reclaimed
+```
+
+#### GC State Modifiers (Bits 39-38)
+
+```odin
+GC_STATE_STD :: 0x00_00_00_00_00_00_00_00
+GC_STATE_WEAK :: 0x00_00_00_40_00_00_00_00
+GC_STATE_PINNED :: 0x00_00_00_80_00_00_00_00 // Immovable (FFI pointers)
+GC_STATE_GLOBAL :: 0x00_00_00_C0_00_00_00_00 // Immortal Singleton (e.g. Core Legends)
+```
+
+#### Mutability Flags & Mutex Locks (Bits 43-42)
+
+```odin
+FLAG_MUT_MUTABLE :: 0x00_00_00_00_00_00_00_00 // 00: Standard Mutable Object
+FLAG_MUT_ONCE :: 0x00_00_04_00_00_00_00_00 // 01: Write-Once (Submap parameter initialization)
+FLAG_MUT_IMMUT :: 0x00_00_08_00_00_00_00_00 // 10: Fully Immutable / Read-Only
+FLAG_LOCKED :: 0x00_00_0C_00_00_00_00_00 // 11: VM Mutex Spinlock (Actively locked by an OS Thread)
+```
+
+### The Fast-Path Tracing Optimizations
+
+When the GC traces a Context frame, it filters out values that don't need tracing.
+
+```odin
+@inline
+needs_tracing :: proc(v: Value) -> bool {
+    val := u64(v)
+    if (val & MASK_FLOAT) != 0 do return false
+    if (val & MASK_ADDRESS) == MASK_ADDRESS do return true
+
+    // Checks for 0x7F_FE or 0x7F_FF prefix (Eden Objects)
+    if (val & 0x7F_FE_00_00_00_00_00_00) == 0x7F_FE_00_00_00_00_00_00 do return true
+
+    return false // Inline Primitive
+
+}
+```
+
+- Partial Stack Scanning: The Scavenger reads `CTX_OFFSET_SP` and only traces the Context stack up to that exact index.
+- Absolute PC Race Condition Prevention: When tracing the Context's PC, the GC must traverse to the Sequence. If multiple Contexts point to the same Sequence, it might have already been moved. The GC must check the Sequence's `GC_LINK` forwarding pointer first, and apply the Absolute PC offset math to the forwarded base address, ensuring JIT-compiled CPU registers remain perfectly mapped.
+
+## Dynamic Deoptimization & Selective Invalidation
+
+A high-productivity programming environment requires that programming changes take effect instantly. The Rhumb VM accomplishes this by selectively invalidating only affected compiled methods.
+
+### The Four Rules of Dependency Linking
+
+All dependency links are securely confined to Legends using the `LEGEND_OFFSET_SUPPLY_LINK` and `LEGEND_OFFSET_DEMAND_LINK` fields (doubly-linked circular lists).
+
+1. Routine Compilation: A link between the legend field description containing the routine and the compiled code.
+2. Inlining: A link between the matching field description and the compiled code.
+3. Parent/Subfield Traversal: A link between the field description containing the subfield and the compiled code.
+4. Failed Lookups (Misses): A link between the legend of the object searched and the compiled code (in case a matching field is added later).
+
+### Handling Executing Routines (Deoptimization/OSR)
+
+Routines that are currently executing cannot simply be flushed. The VM utilizes On-Stack Replacement (OSR). Because every execution frame is an explicitly allocated Context object in Eden, the VM safely pauses execution, maps the JIT-compiled native hardware registers back into the Context's absolute PC and Operand Stack offsets, discards the invalidated machine code, and seamlessly reconstructs the execution state in the slow-path bytecode Interpreter.
+
+## Concurrency, Tuplespace & Proclamations
+
+Rhumb replaces the traditional Call Stack with a Hierarchical Tuplespace driven by the Syndicated Actor Model. Concurrency is handled entirely through `MASK_TUPLE` objects (Signals, Replies, and Proclamations) traversing between `MASK_PROCESS` Green Threads.
+
+### Atomic Tuple Allocation
+
+Tuples are variable-length heap objects. To avoid GC Traps caused by uninitialized memory slots during argument evaluation, the VM utilizes the Context's operand stack as an atomic accumulator.
+
+The VM evaluates the Realm, the Topic, pushes a `MASK_SENTINEL`, and then evaluates all arguments. Only when the final `OUTER _$*_` (or `_*#_`) opcode is executed does the VM pop the entire block, scanning back to the Sentinel to determine the exact `COUNT`. It then bump-allocates the `MASK_TUPLE` in Eden in one atomic, memory-safe operation.
+
+### Proclamation Lists & Virtual Deduplication
+
+Proclamations ($) are declarative assertions of state, not imperative subroutine calls.
+
+When an actor asserts a Proclamation (e.g., `supply\run$status('active')`), it attaches to a Realm.
+
+- The Proclamation List: Realms treat Proclamations as a list. The VM navigates this collection by consuming the Topic and using the Tuple's `TUPLE_OFFSET_COUNT` to skip to the next object in memory.
+- Virtual Deduplication: Deduplication does not happen physically in memory. Identical proclamations are added to the list, but the deduplication happens virtually when the Realm processes signals. A subscriber is notified of a proclamation's presence exactly once; subsequent equivalent assertions do not trigger new notifications.
+- The Zero-Cost Equivalence Check: To deduplicate virtually, the Realm must check if a Tuple matches an existing one. Because of Rhumb's NaN-boxing architecture, equality is evaluated instantly. A single u64 bitwise equality check simultaneously validates exact literal matching (for `Integer`, `Symbol`, `Rune`) AND exact instance matching (comparing `MASK_ADDRESS` memory pointers for heap objects).
+
+### Reference Operators, Retraction & Partial Application
+
+Because Tuples represent state rather than logic, they cannot be partially applied or invoked like a Routine.
+
+- References (`p := supply_run$status`): This saves a direct pointer to the `MASK_TUPLE_PROCL` object in memory. You cannot change its arguments or invoke it.
+- Retraction (`p := ___`): The only way to retract a proclamation is to have a reference to its memory location and set it to Empty. The Realm detects the retraction. A notification of removal is only sent to subscribers if the last equivalent proclamation has been removed from the virtual set.
+- Invocation Errors (`p(1)`): This will throw a runtime error, because a `MASK_TUPLE` is not a `MASK_ROUTINE`. It has no executable Sequence.
+- Assertion (`p := supply_run$status(1)`): This evaluates the arguments, creates an entirely new `MASK_TUPLE_PROCL` atomically, asserts it to the supply_run realm, and saves the new reference to p.
+- Deferred Subroutines (`f := <(supply_run$status(?1))`): If a developer wants the behavior of partial application, they use a standard Routine (macro/closure). Executing `f(2)` invokes the routine, which internally asserts a brand new proclamation, `status(2)`.
+
+## VM-Level Concurrency Control & Object Locking
+
+In a system utilizing Green Threads and the Syndicated Actor Model (SAM), there is a natural tension between Actor-based state isolation and low-level memory pointers. At the application layer, state should never be shared across thread boundaries, relying on Idiomatic SAM message passing to coordinate processes.
+
+However, at the Virtual Machine Implementation Layer, physical thread safety is unavoidable. Because the Odin backend leverages multiple OS worker threads concurrently scheduling execution, Rhumb's internal operations (such as dynamically appending to a List or traversing a Realm) must be protected from race conditions where two threads mutate the same MASK_ADDRESS simultaneously.
+
+### The Mark Word Spinlock (Low-Level VM Mutex)
+
+To solve this efficiently, the VM leverages the perfectly saturated 2-bit Mutability Flags (Bits 43-42) found in the Mark word of every heap object.
+
+We introduce two internal FFI operations (OUTER \_lock\* and OUTER \_unlock\*) that OS threads use to acquire exclusive write access to a specific object.
+
+#### Acquiring the Lock
+
+```odin
+proc acquire_lock(vm: ^VM, active_proc: Value, target_addr: Value) -> u64 {
+    target_ptr := deref(target_addr)
+
+          for {
+              old_mark := target_ptr[0]
+
+              // Extract the current 2-bit mutability state
+              mut_state := old_mark & 0x00_00_0C_00_00_00_00_00
+
+              if mut_state == FLAG_LOCKED {
+                  // ALREADY LOCKED! Yield the green thread back to the scheduler.
+                  active_proc[PROC_OFFSET_MARK] |= FLAG_ZOMBIE_PROC
+                  enqueue_wait_list(target_addr, active_proc)
+                  return YIELD_TO_SCHEDULER
+              }
+
+              if mut_state == FLAG_MUT_IMMUT {
+                  panic("Cannot lock an immutable object!")
+              }
+
+              // CAS: Swap the current mutability state to FLAG_LOCKED
+              new_mark := (old_mark & ~0x00_00_0C_00_00_00_00_00) | FLAG_LOCKED
+              if atomic_cas(&target_ptr[0], old_mark, new_mark) {
+                  // SUCCESS! Return the original state so the OS thread can restore it later.
+                  return mut_state
+              }
+          }
+
+}
+```
+
+#### Releasing the Lock
+
+When the OS thread finishes updating the object and all necessary dependents, it restores the original mutability state seamlessly.
+
+```odin
+proc release_lock(vm: ^VM, target_addr: Value, original_mut_state: u64) {
+target_ptr := deref(target_addr)
+
+    for {
+        old_mark := target_ptr[0]
+
+        // CAS: Restore the original mutability state (e.g., FLAG_MUT_MUTABLE)
+        new_mark := (old_mark & ~0x00_00_0C_00_00_00_00_00) | original_mut_state
+        if atomic_cas(&target_ptr[0], old_mark, new_mark) {
+            break
+        }
+    }
+
+    // Wake up the next ZOMBIE process in the waiting queue
+    if has_waiters(target_addr) {
+        next_proc := dequeue_wait_list(target_addr)
+        next_proc[PROC_OFFSET_MARK] &= ~FLAG_ZOMBIE_PROC
+        enqueue_runqueue(vm.scheduler, next_proc)
+    }
+
+}
+```
+
+Why this fits the architecture perfectly:
+
+- **Zero Extra Memory**: The Mutex state is fully encapsulated in a pre-existing 64-bit word that every heap object already has.
+- **Perfect Saturation**: By mapping Mutable (`00`), Write-Once (`01`), and Immutable (`10`), the final `11` bit-state perfectly acts as the temporary lock flag.
+- **Safe Halting**: Instead of blocking the actual OS Thread in an infinite spinloop, a locked object gracefully forces the Green Thread to yield as a `FLAG_ZOMBIE_PROC`, ensuring the OS thread remains free to execute other runnable processes while the lock is held.
+
+
+--- END OF FILE: virtual-machine.md ---
