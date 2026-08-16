@@ -97,6 +97,40 @@ warehouse\cherries := 30
 warehouse[*] <> fruit -> add-to-truck(fruit, warehouse[fruit])
 ```
 
+:::info Note: Submap Spreading
+
+When applied to a `MASK_SUBMAP` reference (e.g., `<foo>\*`), this operator acts as a Submap-specific spread operator. It extracts the parameter list from the referenced Submap and flattens those labels directly into the surrounding Submap literal.
+
+When flattening one Submap into another using the `\*` operator, the VM adheres to the following strict transfer rules:
+
+* Any default values assigned to the fields in the source Submap are perfectly preserved and copied into the new target Submap.
+* The exact mutability state (Immutable, Mutable, or Write-Once) of each field is transferred to the new Submap.
+* Field labels act exactly like Local labels in Rhumb. If a spread Submap introduces a label that you explicitly define again (e.g., `<[<name>\*; dob]>` where `name` already contains `dob`), the explicit field will silently overwrite the spread field, *provided that the original field's mutability allows for reassignment*. If the original field is strictly immutable, the compiler will honor that and throw an error.
+* Submaps support complex, nested slurps. A source Submap can contain multiple slurps, and you can even define multiple slurps in a single flat Submap. As long as the compiler can definitively determine the positional bounds of the slurp, it is perfectly valid.
+
+```rhumb
+person .= <[first-name; middle-initial; last-name; date-of-birth]>
+address .= <[street-address; city; state; postal-code]>
+identifiers .= <[phone-number; email; user-id;]
+
+User := <[ <person> ; <address> ; <identifiers>\*; created-date; referral-id]>
+
+john-doe .= User(
+    "John"; ___; "Doe"; 09/16/2023
+    "123 Main St"; "Anytown"; "USA"; "12345";
+    "123-555-1212"; "john.doe@email.com"; "1545fsd1-vsdf13r51-fdsf1351";
+    08/16/2026;
+    "google-search")
+john-doe\person\last-name %= 'Doe'
+
+% Because of the `\*`, the parameter list of the submap is
+% flattened into the User submap. Therefore, it can
+% be referenced directly.
+john-doe\email %= 'john.doe@email.com'
+```
+
+:::
+
 ### `[0]` All Positional Elements
 
 Take all the positional elements and return them as a simple map without any of the original map's fields attached. This allows you to take some positional data and excise it from one map and place it into a new or different one.
@@ -179,7 +213,9 @@ When applied to any value, it first attempts the truth coercion and then flips t
 
 ### `[&]` Slurp / Spread
 
-When applied to a map, it takes the inner positional elements and slips them into the outer scope as positional elements. When applied to a parameter name in submap, it greedily takes the surrounding positional arguments that don't have a corresponding parameter name. It works at the beginning, middle or end of a submap which allows for maximum slurping power.
+When applied to a map, it takes the inner positional elements and slips them into the outer scope as positional elements. When applied to a parameter name in a submap, it greedily takes the surrounding positional arguments that don't have a corresponding parameter name. It works at the beginning, middle, or end of a submap, which allows for maximum slurping power.
+
+> **⚠️ Critical Context Warning:** Inside of a Submap literal (`<[...]>`), the `&` operator **exclusively means Slurp**. Because Submaps define parameters, using `&` will always pull surrounding arguments *into* the label. If your goal is to spread an existing parameter list into the Submap, you must use the reference and All Fields syntax: `<target>\*`.
 
 ### ``[`]`` Key Coerce
 

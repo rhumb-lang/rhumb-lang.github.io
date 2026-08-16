@@ -128,6 +128,10 @@ m1 .= [foo :: 'bar'; x :: 42]
 m2 .= [foo :: 'qux'; y :: 13]
 cloned-map .= [&m1] %= [foo::"bar";x::42]
 merged-map .= [&m1; &m2] %= [foo::"qux";x::42;y::13]
+
+first-five .= [1;2;3;4;5]
+last-five .= [6;7;8;9;10]
+all-ten .= [&first-five; &last-five] %= [1;2;3;4;5;6;7;8;9;10]
 ```
 
 ## Submaps
@@ -153,7 +157,11 @@ supply-run .= [load; <warehouse>\*] -> (
 )
 ```
 
-As you can see, to _spread_ inside of a Submap, you cannot use `&` because that acts as a "slurp" operation inside of Submaps. Instead, a Submap's parameters can be spread as arguments using the reference brackets (`<...>`) and the `\*` or `[*]` field operators.
+To effectively "spread" labels from one Submap into another, you must wrap the source Submap in reference brackets and use the All Fields operator (`\*` or `[*]`). The VM flattens the labels directly into the target Submap.
+
+* `personCorrect .= <[<name>\*; dob]>`
+* If you leave off the `\*`, the Submap structure will simply be nested inside the target Submap (e.g., `personNested .= <[<name>; dob]>`).
+* You cannot use the standard `&` operator to spread here. Because Submaps act as parameter definitions, `&` is exclusively reserved to act as a "slurp" operator inside of Submaps.
 
 ## Destructuring
 

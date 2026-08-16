@@ -298,9 +298,9 @@ When the user executes a mutating operation like `a\foo := 10` (where `a` curren
 1. `OP_LOCAL a` performs a map lookup in `CTX_OFFSET_LOCALS` and pushes a `MASK_ADDRESS` pointing directly to the memory slot of the local variable.
 2. `OP_INNER foo` pops that `MASK_ADDRESS`. It dereferences it and sees the primitive integer. It allocates a new `Place` object on the heap, writes the new `Place` pointer directly back into the local variable's `MASK_ADDRESS` (updating `a` in-place!), and pushes a new `MASK_ADDRESS` pointing to the `foo` field inside the new `Place`.
 3. `OP_VALUE 10` pushes the literal 10.
-4. `OP_OUTER \*:=*` pops the 10 and the `MASK_ADDRESS`, writing the value directly to the memory slot.
+4. `OP_OUTER _:=_` pops the 10 and the `MASK_ADDRESS`, writing the value directly to the memory slot.
 
-Because locals and heap properties both yield `MASK_ADDRESS` pointers on the stack, `OUTER \*:=*` acts as a universal, polymorphic assignment operator. `MASK_PLACE` is exclusively utilized when a primitive needs to gain properties or cross reference boundaries while maintaining shared mutability.
+Because locals and heap properties both yield `MASK_ADDRESS` pointers on the stack, `OUTER _:=_` acts as a universal, polymorphic assignment operator. `MASK_PLACE` is exclusively utilized when a primitive needs to gain properties or cross reference boundaries while maintaining shared mutability.
 
 ### Ternary Branching & Handled Success (`=>` and `~>`)
 
@@ -308,15 +308,15 @@ Ternary logic utilizes the `FLAG_HANDLED_BRANCH` bit. This solves the edge case 
 
 - `=>` (Then): If false, yields a standard Falsy value. If true, evaluates its block. If that block results in a Falsy value, the VM tags it with `FLAG_HANDLED_BRANCH`, marking it as a "Protected Success."
 - `~>` (Else): Triggers only if the stack holds a standard, unprotected Falsy value. If it sees a Truthy value OR a Falsy value carrying the `FLAG_HANDLED_BRANCH` bit, it bypasses its fallback block and passes the value forward.
-  **Note**: The VM scrubs the `FLAG_HANDLED_BRANCH` bit on assignments (`_:=_*`) and returns (bare signals `#()`) to prevent "poisoning" variables downstream.
+  **Note**: The VM scrubs the `FLAG_HANDLED_BRANCH` bit on assignments (`_:=_`) and returns (bare signals `#()`) to prevent "poisoning" variables downstream.
 
 ### Selectors & Pattern Matching (`MASK_SELECTOR`)
 
 Selectors are first-class `MASK_SELECTOR` objects delineated by `{}` (or `<{}>` for realms). Because they evaluate expressions and manage control flow, they are structurally stored as executable Routines, possessing a Chunk and lexical Scope.
 
-The distinction between `..` (Take/Break) and `::` (Peek/Fallthrough) does not require any special Virtual Machine state. It is handled entirely by the Compiler through Static Analysis and standard `OUTER_JMP_F*` (Jump If False) conditional branching.
+The distinction between `..` (Take/Break) and `::` (Peek/Fallthrough) does not require any special Virtual Machine state. It is handled entirely by the Compiler through Static Analysis and standard `OUTER _JMP_F_` (Jump If False) conditional branching.
 
-- `..` (Take / Break): The compiler generates the Right-Hand Side (RHS) execution bytecode, and then artificially appends an `OP_OUTER \*#*` (Return) instruction to force the execution frame to exit.
+- `..` (Take / Break): The compiler generates the Right-Hand Side (RHS) execution bytecode, and then artificially appends an `OP_OUTER _#_` (Return) instruction to force the execution frame to exit.
 - `::` (Peek / Fallthrough): The compiler generates the RHS bytecode, but does not append a return. The Program Counter (PC) naturally falls through to evaluate the next case.
 - Else Clause: The compiler enforces (via static analysis) that exactly one expression exists without a `..` or `::` operator, ensuring a guaranteed return path for the Routine block.
 
