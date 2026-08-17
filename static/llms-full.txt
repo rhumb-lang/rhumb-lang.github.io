@@ -1492,7 +1492,7 @@ console\log(counter\count) % 1
 
 When a function is defined with the `!>` operator, it is a bound function and the base map is bound to where it was _defined_. The base map is effectively a part of the function definition, not passed in when the function is invoked.
 
-````rhumb
+```rhumb
 counter .= [
     count :: 0
     increment :: [] -> !\count := !\count ++ 1
@@ -1535,12 +1535,12 @@ Since a map can have multiple subfields, Rhumb supports multiple inheritance (or
 ```rhumb
 identifiable .= [
     id :: '12345'
-    get-id .. [] !> !\id
+    get-id .. [] -> !\id
 ]
 
 namable .= [
     name :: 'Unknown'
-    get-name .. [] !> !\name
+    get-name .. [] -> !\name
 ]
 
 % Inherit from both
@@ -1572,7 +1572,7 @@ Sometimes you want to bypass the standard lookup or access a specific prototype 
 ## Methods vs Functions
 
 - **`->` (Function)**: A standard function. Does not bind `!` until it is called, and then it is bound to the object it was called on. Useful for inherited methods.
-- **`!>` (Bound Function/Method)**: Binds `!` to the object it was defined in. Essential for object behavior.
+- **`!>` (Bound Function/Method)**: Binds `!` to the object it was defined in. A shortcut for defining static methods.
 
 ## Dynamic Dispatch
 
@@ -1595,8 +1595,8 @@ You can manually bind a function to a specific object using the `!!` operator. T
 ```rhumb
 identify .= [] -> !\name\upper-case
 speak .= [] -> (
-  greeting .= "Hello, I'm $identify"
-  #STDOUT(greeting)
+    !\identify = identify % equivilent to `<identify> !! !`
+    "Hello, I'm $(!\identify)"
 )
 
 me .= [ name .. 'Jake' ]
@@ -1926,6 +1926,10 @@ m1 .= [foo :: 'bar'; x :: 42]
 m2 .= [foo :: 'qux'; y :: 13]
 cloned-map .= [&m1] %= [foo::"bar";x::42]
 merged-map .= [&m1; &m2] %= [foo::"qux";x::42;y::13]
+
+first-five .= [1;2;3;4;5]
+last-five .= [6;7;8;9;10]
+all-ten .= [&first-five; &last-five] %= [1;2;3;4;5;6;7;8;9;10]
 ```
 
 ## Submaps
@@ -1951,7 +1955,11 @@ supply-run .= [load; <warehouse>\*] -> (
 )
 ```
 
-As you can see, to _spread_ inside of a Submap, you cannot use `&` because that acts as a "slurp" operation inside of Submaps. Instead, a Submap's parameters can be spread as arguments using the reference brackets (`<...>`) and the `\*` or `[*]` field operators.
+To effectively "spread" labels from one Submap into another, you must wrap the source Submap in reference brackets and use the All Fields operator (`\*` or `[*]`). The VM flattens the labels directly into the target Submap.
+
+* `personCorrect .= <[<name>\*; dob]>`
+* If you leave off the `\*`, the Submap structure will simply be nested inside the target Submap (e.g., `personNested .= <[<name>; dob]>`).
+* You cannot use the standard `&` operator to spread here. Because Submaps act as parameter definitions, `&` is exclusively reserved to act as a "slurp" operator inside of Submaps.
 
 ## Destructuring
 
@@ -2476,6 +2484,40 @@ warehouse\cherries := 30
 warehouse[*] <> fruit -> add-to-truck(fruit, warehouse[fruit])
 ```
 
+:::info Note: Submap Spreading
+
+When applied to a `MASK_SUBMAP` reference (e.g., `<foo>\*`), this operator acts as a Submap-specific spread operator. It extracts the parameter list from the referenced Submap and flattens those labels directly into the surrounding Submap literal.
+
+When flattening one Submap into another using the `\*` operator, the VM adheres to the following strict transfer rules:
+
+* Any default values assigned to the fields in the source Submap are perfectly preserved and copied into the new target Submap.
+* The exact mutability state (Immutable, Mutable, or Write-Once) of each field is transferred to the new Submap.
+* Field labels act exactly like Local labels in Rhumb. If a spread Submap introduces a label that you explicitly define again (e.g., `<[<name>\*; dob]>` where `name` already contains `dob`), the explicit field will silently overwrite the spread field, *provided that the original field's mutability allows for reassignment*. If the original field is strictly immutable, the compiler will honor that and throw an error.
+* Submaps support complex, nested slurps. A source Submap can contain multiple slurps, and you can even define multiple slurps in a single flat Submap. As long as the compiler can definitively determine the positional bounds of the slurp, it is perfectly valid.
+
+```rhumb
+person .= <[first-name; middle-initial; last-name; date-of-birth]>
+address .= <[street-address; city; state; postal-code]>
+identifiers .= <[phone-number; email; user-id;]
+
+User := <[ <person> ; <address> ; <identifiers>\*; created-date; referral-id]>
+
+john-doe .= User(
+    "John"; ___; "Doe"; 09/16/2023
+    "123 Main St"; "Anytown"; "USA"; "12345";
+    "123-555-1212"; "john.doe@email.com"; "1545fsd1-vsdf13r51-fdsf1351";
+    08/16/2026;
+    "google-search")
+john-doe\person\last-name %= 'Doe'
+
+% Because of the `\*`, the parameter list of the submap is
+% flattened into the User submap. Therefore, it can
+% be referenced directly.
+john-doe\email %= 'john.doe@email.com'
+```
+
+:::
+
 ### `[0]` All Positional Elements
 
 Take all the positional elements and return them as a simple map without any of the original map's fields attached. This allows you to take some positional data and excise it from one map and place it into a new or different one.
@@ -2558,7 +2600,9 @@ When applied to any value, it first attempts the truth coercion and then flips t
 
 ### `[&]` Slurp / Spread
 
-When applied to a map, it takes the inner positional elements and slips them into the outer scope as positional elements. When applied to a parameter name in submap, it greedily takes the surrounding positional arguments that don't have a corresponding parameter name. It works at the beginning, middle or end of a submap which allows for maximum slurping power.
+When applied to a map, it takes the inner positional elements and slips them into the outer scope as positional elements. When applied to a parameter name in a submap, it greedily takes the surrounding positional arguments that don't have a corresponding parameter name. It works at the beginning, middle, or end of a submap, which allows for maximum slurping power.
+
+> **⚠️ Critical Context Warning:** Inside of a Submap literal (`<[...]>`), the `&` operator **exclusively means Slurp**. Because Submaps define parameters, using `&` will always pull surrounding arguments *into* the label. If your goal is to spread an existing parameter list into the Submap, you must use the reference and All Fields syntax: `<target>\*`.
 
 ### ``[`]`` Key Coerce
 
@@ -3155,23 +3199,72 @@ The prefix operator `?` is used to access the raw arguments passed to the curren
 Whenever a subroutine uses a base expression, it causes the subroutine to shift it's default return value from the last expression to the base map. If the user doesn't want this behavior, they must explicitly return a value at the end of the subroutine. This is how Rhumb differentiates between constructors and non-constructor subroutines.
 
 ```rhumb
-multiply .= [x] -> x ** 2 % returns the last expression's value
-User := [name] -> !\name := name % returns ! (the base map)
+% returns the last expression's value
+multiply .= [x] -> x ** 2
+
+% returns ! (the base map)
+User := [name] -> !\name := name 
 ```
 
-When adding "methods" (subroutines that extend the base map), it's important to bind the subroutine to the appropriate base map.
+When adding "methods" (subroutines in map fields), you do not need to bind them because a subroutine in a map field automatically references the map it is called from. For example, when `<User>\<set-age>` is called, the subroutine knows to use `<User>` as its base map. If you explicitly bind it however, then it will use the bound map as its base map.
 
 ```rhumb
-<User>\set-age := [age] -> !\dob := Date\now\year -- age
-<User>\<set-age> .= <User>\<set-age> !! <User>
+<User>\set-address := [street; city; state; zip] -> (
+    !\street := street
+    !\city := city
+    !\state := state
+    !\zip := zip
+)
+<User>\set-mailing-address :=
+    <User>\set-address !! <User>\mailing
 ```
 
-Otherwise, the subroutine will use its own base map containing only the fields defined during the routine's code.
-
-Rhumb gives you a shorthand way to accomplish this:
+Rhumb has a shorthand way to bind a subroutine directly to the map it is defined in:
 
 ```rhumb
-<User>\set-age .= [age] !> !\dob := Date\now\year -- age
+Player .= [
+    name .. 'Hero'
+    health :: 100
+
+    % Here, `!` refers to the map that calls it
+    take-damage .. [amount] ->
+        !\health := !\health -- amount
+
+    % Here, `!` refers to the `Player` map
+    heal .. [amount] !> !\health := !\health ++ amount
+]
+
+GameEngine .= [
+    % The engine has its own separate health pool
+    health :: 9999
+    % The Empty Value, used to store a deferred subroutine
+    on-tick :: ___
+]
+
+% ------------------------------------------------------
+% SCENARIO A: The Hijacked Context
+% ------------------------------------------------------
+% We store the reference to the unbound subroutine
+GameEngine\on-tick := <Player>\take-damage
+
+% The GameEngine invokes the subroutine. 
+% Because it was defined with ->
+% the base (!) becomes the GameEngine!
+GameEngine\on-tick(10) 
+% RESULT: The Player is unharmed
+% but the GameEngine's health drops to 9989!
+
+% ------------------------------------------------------
+% SCENARIO B: The Safe Context
+% ------------------------------------------------------
+% We store the reference to the bound subroutine
+GameEngine\on-tick := <Player>\heal
+
+% The GameEngine invokes the subroutine.
+% Because it was defined with !>
+% the base (!) remains strictly locked to the Player.
+GameEngine\on-tick(20)
+% RESULT: The Player's health correctly increases to 120.
 ```
 
 :::
@@ -3764,9 +3857,9 @@ When the user executes a mutating operation like `a\foo := 10` (where `a` curren
 1. `OP_LOCAL a` performs a map lookup in `CTX_OFFSET_LOCALS` and pushes a `MASK_ADDRESS` pointing directly to the memory slot of the local variable.
 2. `OP_INNER foo` pops that `MASK_ADDRESS`. It dereferences it and sees the primitive integer. It allocates a new `Place` object on the heap, writes the new `Place` pointer directly back into the local variable's `MASK_ADDRESS` (updating `a` in-place!), and pushes a new `MASK_ADDRESS` pointing to the `foo` field inside the new `Place`.
 3. `OP_VALUE 10` pushes the literal 10.
-4. `OP_OUTER \*:=*` pops the 10 and the `MASK_ADDRESS`, writing the value directly to the memory slot.
+4. `OP_OUTER _:=_` pops the 10 and the `MASK_ADDRESS`, writing the value directly to the memory slot.
 
-Because locals and heap properties both yield `MASK_ADDRESS` pointers on the stack, `OUTER \*:=*` acts as a universal, polymorphic assignment operator. `MASK_PLACE` is exclusively utilized when a primitive needs to gain properties or cross reference boundaries while maintaining shared mutability.
+Because locals and heap properties both yield `MASK_ADDRESS` pointers on the stack, `OUTER _:=_` acts as a universal, polymorphic assignment operator. `MASK_PLACE` is exclusively utilized when a primitive needs to gain properties or cross reference boundaries while maintaining shared mutability.
 
 ### Ternary Branching & Handled Success (`=>` and `~>`)
 
@@ -3774,15 +3867,15 @@ Ternary logic utilizes the `FLAG_HANDLED_BRANCH` bit. This solves the edge case 
 
 - `=>` (Then): If false, yields a standard Falsy value. If true, evaluates its block. If that block results in a Falsy value, the VM tags it with `FLAG_HANDLED_BRANCH`, marking it as a "Protected Success."
 - `~>` (Else): Triggers only if the stack holds a standard, unprotected Falsy value. If it sees a Truthy value OR a Falsy value carrying the `FLAG_HANDLED_BRANCH` bit, it bypasses its fallback block and passes the value forward.
-  **Note**: The VM scrubs the `FLAG_HANDLED_BRANCH` bit on assignments (`_:=_*`) and returns (bare signals `#()`) to prevent "poisoning" variables downstream.
+  **Note**: The VM scrubs the `FLAG_HANDLED_BRANCH` bit on assignments (`_:=_`) and returns (bare signals `#()`) to prevent "poisoning" variables downstream.
 
 ### Selectors & Pattern Matching (`MASK_SELECTOR`)
 
 Selectors are first-class `MASK_SELECTOR` objects delineated by `{}` (or `<{}>` for realms). Because they evaluate expressions and manage control flow, they are structurally stored as executable Routines, possessing a Chunk and lexical Scope.
 
-The distinction between `..` (Take/Break) and `::` (Peek/Fallthrough) does not require any special Virtual Machine state. It is handled entirely by the Compiler through Static Analysis and standard `OUTER_JMP_F*` (Jump If False) conditional branching.
+The distinction between `..` (Take/Break) and `::` (Peek/Fallthrough) does not require any special Virtual Machine state. It is handled entirely by the Compiler through Static Analysis and standard `OUTER _JMP_F_` (Jump If False) conditional branching.
 
-- `..` (Take / Break): The compiler generates the Right-Hand Side (RHS) execution bytecode, and then artificially appends an `OP_OUTER \*#*` (Return) instruction to force the execution frame to exit.
+- `..` (Take / Break): The compiler generates the Right-Hand Side (RHS) execution bytecode, and then artificially appends an `OP_OUTER _#_` (Return) instruction to force the execution frame to exit.
 - `::` (Peek / Fallthrough): The compiler generates the RHS bytecode, but does not append a return. The Program Counter (PC) naturally falls through to evaluate the next case.
 - Else Clause: The compiler enforces (via static analysis) that exactly one expression exists without a `..` or `::` operator, ensuring a guaranteed return path for the Routine block.
 
