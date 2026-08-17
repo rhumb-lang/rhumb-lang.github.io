@@ -94,7 +94,7 @@ console\log(counter\count) % 1
 
 When a function is defined with the `!>` operator, it is a bound function and the base map is bound to where it was _defined_. The base map is effectively a part of the function definition, not passed in when the function is invoked.
 
-````rhumb
+```rhumb
 counter .= [
     count :: 0
     increment :: [] -> !\count := !\count ++ 1
@@ -137,12 +137,12 @@ Since a map can have multiple subfields, Rhumb supports multiple inheritance (or
 ```rhumb
 identifiable .= [
     id :: '12345'
-    get-id .. [] !> !\id
+    get-id .. [] -> !\id
 ]
 
 namable .= [
     name :: 'Unknown'
-    get-name .. [] !> !\name
+    get-name .. [] -> !\name
 ]
 
 % Inherit from both
@@ -174,7 +174,7 @@ Sometimes you want to bypass the standard lookup or access a specific prototype 
 ## Methods vs Functions
 
 - **`->` (Function)**: A standard function. Does not bind `!` until it is called, and then it is bound to the object it was called on. Useful for inherited methods.
-- **`!>` (Bound Function/Method)**: Binds `!` to the object it was defined in. Essential for object behavior.
+- **`!>` (Bound Function/Method)**: Binds `!` to the object it was defined in. A shortcut for defining static methods.
 
 ## Dynamic Dispatch
 
@@ -197,8 +197,8 @@ You can manually bind a function to a specific object using the `!!` operator. T
 ```rhumb
 identify .= [] -> !\name\upper-case
 speak .= [] -> (
-  greeting .= "Hello, I'm $identify"
-  #STDOUT(greeting)
+    !\identify = identify % equivilent to `<identify> !! !`
+    "Hello, I'm $(!\identify)"
 )
 
 me .= [ name .. 'Jake' ]
