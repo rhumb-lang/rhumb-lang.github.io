@@ -43,23 +43,72 @@ The prefix operator `?` is used to access the raw arguments passed to the curren
 Whenever a subroutine uses a base expression, it causes the subroutine to shift it's default return value from the last expression to the base map. If the user doesn't want this behavior, they must explicitly return a value at the end of the subroutine. This is how Rhumb differentiates between constructors and non-constructor subroutines.
 
 ```rhumb
-multiply .= [x] -> x ** 2 % returns the last expression's value
-User := [name] -> !\name := name % returns ! (the base map)
+% returns the last expression's value
+multiply .= [x] -> x ** 2
+
+% returns ! (the base map)
+User := [name] -> !\name := name 
 ```
 
-When adding "methods" (subroutines that extend the base map), it's important to bind the subroutine to the appropriate base map.
+When adding "methods" (subroutines in map fields), you do not need to bind them because a subroutine in a map field automatically references the map it is called from. For example, when `<User>\<set-age>` is called, the subroutine knows to use `<User>` as its base map. If you explicitly bind it however, then it will use the bound map as its base map.
 
 ```rhumb
-<User>\set-age := [age] -> !\dob := Date\now\year -- age
-<User>\<set-age> .= <User>\<set-age> !! <User>
+<User>\set-address := [street; city; state; zip] -> (
+    !\street := street
+    !\city := city
+    !\state := state
+    !\zip := zip
+)
+<User>\set-mailing-address :=
+    <User>\set-address !! <User>\mailing
 ```
 
-Otherwise, the subroutine will use its own base map containing only the fields defined during the routine's code.
-
-Rhumb gives you a shorthand way to accomplish this:
+Rhumb has a shorthand way to bind a subroutine directly to the map it is defined in:
 
 ```rhumb
-<User>\set-age .= [age] !> !\dob := Date\now\year -- age
+Player .= [
+    name .. 'Hero'
+    health :: 100
+
+    % Here, `!` refers to the map that calls it
+    take-damage .. [amount] ->
+        !\health := !\health -- amount
+
+    % Here, `!` refers to the `Player` map
+    heal .. [amount] !> !\health := !\health ++ amount
+]
+
+GameEngine .= [
+    % The engine has its own separate health pool
+    health :: 9999
+    % The Empty Value, used to store a deferred subroutine
+    on-tick :: ___
+]
+
+% ------------------------------------------------------
+% SCENARIO A: The Hijacked Context
+% ------------------------------------------------------
+% We store the reference to the unbound subroutine
+GameEngine\on-tick := <Player>\take-damage
+
+% The GameEngine invokes the subroutine. 
+% Because it was defined with ->
+% the base (!) becomes the GameEngine!
+GameEngine\on-tick(10) 
+% RESULT: The Player is unharmed
+% but the GameEngine's health drops to 9989!
+
+% ------------------------------------------------------
+% SCENARIO B: The Safe Context
+% ------------------------------------------------------
+% We store the reference to the bound subroutine
+GameEngine\on-tick := <Player>\heal
+
+% The GameEngine invokes the subroutine.
+% Because it was defined with !>
+% the base (!) remains strictly locked to the Player.
+GameEngine\on-tick(20)
+% RESULT: The Player's health correctly increases to 120.
 ```
 
 :::
